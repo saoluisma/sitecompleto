@@ -20,40 +20,21 @@
             background: #0a0a0a;
             color: #e0e0e0;
             min-height: 100vh;
-            line-height: 1.5;
-        }
-
-        /* Fundo sutil com textura */
-        body::before {
-            content: '';
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            background-image: radial-gradient(rgba(255, 255, 255, 0.02) 1px, transparent 1px);
-            background-size: 40px 40px;
-            pointer-events: none;
-            z-index: 0;
         }
 
         .container {
             max-width: 680px;
             margin: 0 auto;
             padding: 1.5rem;
-            position: relative;
-            z-index: 1;
         }
 
-        /* Timer - Sóbrio e urgente */
         .timer-container {
             background: #111111;
             border-radius: 1rem;
             padding: 1.5rem;
             text-align: center;
-            margin-bottom: 2rem;
+            margin-bottom: 1.5rem;
             border: 1px solid #2a2a2a;
-            position: relative;
         }
 
         .timer-label {
@@ -67,7 +48,7 @@
 
         .timer {
             font-family: 'Inter', monospace;
-            font-size: 3.5rem;
+            font-size: 3rem;
             font-weight: 700;
             color: #e0e0e0;
             letter-spacing: 2px;
@@ -81,14 +62,12 @@
             font-size: 0.7rem;
             color: #666;
             margin-top: 0.75rem;
-            font-weight: 400;
         }
 
         .timer-warning.urgent {
             color: #c0392b;
         }
 
-        /* Card principal */
         .card {
             background: #111111;
             border-radius: 1.25rem;
@@ -120,7 +99,6 @@
             padding: 1.5rem;
         }
 
-        /* Mensagens - Cards grandes e destacados */
         .mensagens {
             display: flex;
             flex-direction: column;
@@ -133,26 +111,21 @@
             border-radius: 1rem;
             border-left: 4px solid #c0392b;
             font-size: 1rem;
-            font-weight: 400;
             line-height: 1.5;
             color: #e0e0e0;
         }
 
-        .mensagem-item strong {
-            color: #c0392b;
-            font-weight: 600;
-        }
-
-        /* Fotos - Grid com imagens grandes e proporcionais */
         .fotos-grid {
             display: grid;
-            grid-template-columns: 1fr;
-            gap: 1.25rem;
-            margin-top: 1rem;
+            grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+            gap: 1rem;
+            margin: 1rem 0;
         }
 
         .foto {
             width: 100%;
+            aspect-ratio: 1 / 1;
+            object-fit: cover;
             border-radius: 1rem;
             cursor: pointer;
             transition: transform 0.2s, opacity 0.2s;
@@ -161,78 +134,108 @@
         }
 
         .foto:hover {
-            transform: scale(1.01);
+            transform: scale(1.02);
             opacity: 0.95;
         }
 
-        /* Chat - Limpo e profissional */
-        .chat-messages {
-            background: #0a0a0a;
+        .btn-pagar {
+            background: linear-gradient(135deg, #2e7d32, #1b5e20);
+            color: white;
+            border: none;
+            padding: 1rem 1.5rem;
             border-radius: 1rem;
-            height: 320px;
-            overflow-y: auto;
-            padding: 1rem;
-            margin-bottom: 1rem;
-            border: 1px solid #2a2a2a;
-        }
-
-        .message {
-            margin-bottom: 1rem;
-            max-width: 85%;
-            padding: 0.75rem 1rem;
-            border-radius: 1rem;
-            font-size: 0.875rem;
-            line-height: 1.4;
-        }
-
-        .message-admin {
-            background: #1a2530;
-            color: #e0e0e0;
-            margin-left: auto;
-            border-radius: 1rem 0.25rem 1rem 1rem;
-        }
-
-        .message-user {
-            background: #1a1a1a;
-            color: #e0e0e0;
-            margin-right: auto;
-            border-radius: 0.25rem 1rem 1rem 1rem;
-            border: 1px solid #2a2a2a;
-        }
-
-        .message-img {
-            max-width: 100%;
-            border-radius: 0.75rem;
-            margin-top: 0.5rem;
+            font-weight: 700;
+            font-size: 1.2rem;
             cursor: pointer;
+            transition: 0.2s;
+            width: 100%;
+            margin: 1rem 0;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+            box-shadow: 0 4px 15px rgba(46, 125, 50, 0.3);
         }
 
-        .message-file {
-            background: #1a1a1a;
-            padding: 0.5rem 0.75rem;
-            border-radius: 0.5rem;
-            display: inline-block;
-            margin-top: 0.5rem;
-            color: #c0392b;
-            text-decoration: none;
-            font-size: 0.75rem;
+        .btn-pagar:hover {
+            background: linear-gradient(135deg, #388e3c, #2e7d32);
+            transform: scale(1.01);
+            box-shadow: 0 6px 20px rgba(46, 125, 50, 0.4);
+        }
+
+        .btn-pagar:active {
+            transform: scale(0.99);
+        }
+
+        .comprovante-area {
+            background: #0d0d0d;
+            border-radius: 1rem;
+            padding: 1rem;
+            margin-top: 1rem;
+        }
+
+        .comprovante-title {
+            font-size: 0.8rem;
+            color: #888;
+            margin-bottom: 0.75rem;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        .comprovante-list {
+            max-height: 200px;
+            overflow-y: auto;
+        }
+
+        .comprovante-item {
+            background: #0a0a0a;
+            border-radius: 0.75rem;
+            padding: 0.75rem;
+            margin-bottom: 0.5rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
             border: 1px solid #2a2a2a;
         }
 
-        .message small {
-            font-size: 0.625rem;
-            opacity: 0.5;
-            display: block;
-            margin-top: 0.5rem;
+        .comprovante-item .info {
+            display: flex;
+            flex-direction: column;
+            gap: 0.25rem;
         }
 
-        .chat-input-area {
+        .comprovante-item .nome {
+            font-size: 0.75rem;
+            color: #c0392b;
+            font-weight: 500;
+        }
+
+        .comprovante-item .data {
+            font-size: 0.6rem;
+            color: #666;
+        }
+
+        .comprovante-item .download {
+            background: #2a2a2a;
+            color: #e0e0e0;
+            border: none;
+            padding: 0.4rem 0.75rem;
+            border-radius: 0.5rem;
+            font-size: 0.7rem;
+            cursor: pointer;
+            text-decoration: none;
+        }
+
+        .download:hover {
+            background: #3a3a3a;
+        }
+
+        .comprovante-input-area {
             display: flex;
             gap: 0.75rem;
+            margin-top: 1rem;
             flex-wrap: wrap;
         }
 
-        .chat-input-area input[type="text"] {
+        .comprovante-input-area input {
             flex: 1;
             padding: 0.875rem 1rem;
             background: #0a0a0a;
@@ -243,7 +246,7 @@
             font-family: inherit;
         }
 
-        .chat-input-area input[type="text"]:focus {
+        .comprovante-input-area input:focus {
             outline: none;
             border-color: #c0392b;
         }
@@ -263,11 +266,11 @@
             background: #252525;
         }
 
-        .btn-send {
+        .btn-enviar {
             background: #c0392b;
             color: white;
             border: none;
-            padding: 0.875rem 1.5rem;
+            padding: 0.875rem 1.25rem;
             border-radius: 1rem;
             font-weight: 600;
             cursor: pointer;
@@ -275,33 +278,105 @@
             font-family: inherit;
         }
 
-        .btn-send:hover {
+        .btn-enviar:hover {
             background: #a93226;
         }
 
-        /* Botão de pagar - Sofisticado */
-        .btn-pagar {
+        .chat-area {
+            display: none;
+            margin-top: 1rem;
+            padding-top: 1rem;
+            border-top: 1px solid #2a2a2a;
+        }
+
+        .chat-area.ativo {
+            display: block;
+        }
+
+        .chat-messages {
+            background: #0a0a0a;
+            border-radius: 1rem;
+            height: 250px;
+            overflow-y: auto;
+            padding: 1rem;
+            margin-bottom: 1rem;
+            border: 1px solid #2a2a2a;
+        }
+
+        .message {
+            margin-bottom: 1rem;
+            max-width: 85%;
+            padding: 0.5rem 1rem;
+            border-radius: 1rem;
+            font-size: 0.875rem;
+        }
+
+        .message-admin {
+            background: #1a2530;
+            color: #e0e0e0;
+            margin-left: auto;
+            border-radius: 1rem 0.25rem 1rem 1rem;
+        }
+
+        .message-user {
             background: #1a1a1a;
             color: #e0e0e0;
-            border: 1px solid #3a3a3a;
-            padding: 1rem 1.5rem;
+            margin-right: auto;
+            border-radius: 0.25rem 1rem 1rem 1rem;
+            border: 1px solid #2a2a2a;
+        }
+
+        .message-img {
+            max-width: 150px;
+            border-radius: 0.5rem;
+            margin-top: 0.5rem;
+            cursor: pointer;
+        }
+
+        .message-file {
+            background: #1a1a1a;
+            padding: 0.3rem 0.6rem;
+            border-radius: 0.5rem;
+            display: inline-block;
+            margin-top: 0.3rem;
+            color: #c0392b;
+            text-decoration: none;
+            font-size: 0.7rem;
+        }
+
+        .message small {
+            font-size: 0.6rem;
+            opacity: 0.5;
+            display: block;
+            margin-top: 0.3rem;
+        }
+
+        .chat-input-area {
+            display: flex;
+            gap: 0.5rem;
+            flex-wrap: wrap;
+        }
+
+        .chat-input-area input {
+            flex: 1;
+            padding: 0.75rem;
+            background: #0a0a0a;
+            border: 1px solid #2a2a2a;
+            border-radius: 1rem;
+            color: #e0e0e0;
+            font-size: 0.875rem;
+        }
+
+        .chat-send-btn {
+            background: #c0392b;
+            color: white;
+            border: none;
+            padding: 0.75rem 1.25rem;
             border-radius: 1rem;
             font-weight: 600;
-            font-size: 1rem;
             cursor: pointer;
-            transition: 0.2s;
-            width: 100%;
-            margin-bottom: 1.5rem;
-            text-transform: uppercase;
-            letter-spacing: 1px;
         }
 
-        .btn-pagar:hover {
-            background: #252525;
-            border-color: #c0392b;
-        }
-
-        /* Sala fechada */
         .sala-fechada {
             text-align: center;
             padding: 2rem;
@@ -327,8 +402,7 @@
             color: #666;
         }
 
-        /* Toast */
-        .time-update-toast {
+        .toast {
             position: fixed;
             bottom: 20px;
             left: 50%;
@@ -351,7 +425,6 @@
             100% { opacity: 0; transform: translateX(-50%) translateY(10px); }
         }
 
-        /* Modal de imagem */
         .image-modal {
             display: none;
             position: fixed;
@@ -382,14 +455,12 @@
             cursor: pointer;
             background: none;
             border: none;
-            font-family: monospace;
         }
 
         .close-img:hover {
             color: #c0392b;
         }
 
-        /* Popup */
         .popup-overlay {
             position: fixed;
             top: 0;
@@ -472,20 +543,6 @@
             from { width: 100%; }
             to { width: 0%; }
         }
-
-        /* Scrollbar */
-        ::-webkit-scrollbar {
-            width: 6px;
-        }
-
-        ::-webkit-scrollbar-track {
-            background: #1a1a1a;
-        }
-
-        ::-webkit-scrollbar-thumb {
-            background: #c0392b;
-            border-radius: 3px;
-        }
     </style>
 </head>
 <body>
@@ -509,8 +566,8 @@
     let currentExpiraEm = null;
     let timerInterval = null;
     let chatUnsubscribe = null;
-    let cliqueRegistrado = false;
     let popupUnsubscribe = null;
+    let chatAtivo = false;
 
     if (!visitanteId) {
         visitanteId = 'v_' + Date.now() + '_' + Math.random().toString(36).substr(2, 6);
@@ -523,6 +580,7 @@
         registrarVisita();
         carregarCasa(casaId);
         monitorarTempoDaSala(casaId);
+        monitorarConfiguracoes(casaId);
     }
 
     async function registrarVisita() {
@@ -565,9 +623,23 @@
         });
     }
 
+    function monitorarConfiguracoes(id) {
+        db.ref(`configuracoes/${id}/chatAtivo`).on('value', (snapshot) => {
+            chatAtivo = snapshot.val() === true;
+            const chatArea = document.getElementById('chatArea');
+            if (chatArea) {
+                if (chatAtivo) {
+                    chatArea.classList.add('ativo');
+                } else {
+                    chatArea.classList.remove('ativo');
+                }
+            }
+        });
+    }
+
     function mostrarToast(msg) {
         const toast = document.createElement('div');
-        toast.className = 'time-update-toast';
+        toast.className = 'toast';
         toast.innerHTML = msg;
         document.body.appendChild(toast);
         setTimeout(() => toast.remove(), 4000);
@@ -633,18 +705,119 @@
         popupUnsubscribe = () => popupRef.off('value', listener);
     }
 
-    window.realizarPagamento = async function() {
-        window.open('https://www.youtube.com/', '_blank');
-        if (!cliqueRegistrado) {
-            cliqueRegistrado = true;
-            await db.ref(`cliques_pagamento/${casaId}`).push({
-                visitanteId: visitanteId,
+    // FUNÇÃO DO BOTÃO PAGAR - Abre pagamento.html
+    window.irParaPagamento = function() {
+        window.location.href = `pagamento.html?id=${casaId}`;
+    };
+
+    window.enviarComprovante = async function() {
+        const input = document.getElementById('fileInput');
+        const file = input.files[0];
+        if (!file) {
+            mostrarToast("Selecione um arquivo primeiro");
+            return;
+        }
+        
+        const descricao = document.getElementById('comprovanteDescricao').value.trim();
+        
+        const reader = new FileReader();
+        reader.onload = async function(e) {
+            const base64 = e.target.result;
+            const isImage = file.type.startsWith('image/');
+            
+            await db.ref(`comprovantes/${casaId}`).push({
+                de: visitanteId,
+                nome: file.name,
+                descricao: descricao || 'Sem descrição',
+                arquivo: base64,
+                tipo: isImage ? 'imagem' : 'arquivo',
                 data: Date.now(),
                 dataFormatada: new Date().toLocaleString()
             });
-            mostrarToast('Pagamento registrado. Aguarde confirmação.');
-        }
+            
+            mostrarToast("Comprovante enviado com sucesso!");
+            input.value = '';
+            document.getElementById('comprovanteDescricao').value = '';
+            carregarComprovantes();
+        };
+        reader.readAsDataURL(file);
     };
+
+    async function carregarComprovantes() {
+        const snapshot = await db.ref(`comprovantes/${casaId}`).once('value');
+        const comprovantes = snapshot.val();
+        const container = document.getElementById('comprovantesList');
+        
+        if (!comprovantes || Object.keys(comprovantes).length === 0) {
+            container.innerHTML = '<div class="empty-state">Nenhum comprovante enviado</div>';
+            return;
+        }
+        
+        let html = '';
+        const comprovantesArray = Object.values(comprovantes).reverse();
+        comprovantesArray.forEach(comp => {
+            html += `
+                <div class="comprovante-item">
+                    <div class="info">
+                        <span class="nome">📎 ${escapeHtml(comp.nome)}</span>
+                        <span class="data">${comp.dataFormatada}</span>
+                        ${comp.descricao ? `<span style="font-size:0.6rem; color:#888;">${escapeHtml(comp.descricao)}</span>` : ''}
+                    </div>
+                    <a href="${comp.arquivo}" download="${comp.nome}" class="download">Baixar</a>
+                </div>
+            `;
+        });
+        container.innerHTML = html;
+    }
+
+    window.enviarMensagemChat = async function() {
+        if (!chatAtivo) {
+            mostrarToast("Chat não está ativo no momento");
+            return;
+        }
+        const input = document.getElementById('chatInput');
+        const texto = input.value.trim();
+        if (!texto) return;
+        
+        await db.ref(`chats/${casaId}/mensagens`).push({
+            de: 'user',
+            texto: texto,
+            timestamp: Date.now(),
+            lida: false
+        });
+        input.value = '';
+    };
+
+    function iniciarChat(id) {
+        if (chatUnsubscribe) chatUnsubscribe();
+        
+        const messagesDiv = document.getElementById('chatMessages');
+        const chatRef = db.ref(`chats/${id}/mensagens`).orderByChild('timestamp');
+        
+        const listener = chatRef.on('value', (snapshot) => {
+            const msgs = snapshot.val();
+            messagesDiv.innerHTML = '';
+            if (msgs) {
+                Object.values(msgs).forEach(msg => {
+                    const msgDiv = document.createElement('div');
+                    msgDiv.className = `message ${msg.de === 'admin' ? 'message-admin' : 'message-user'}`;
+                    let content = `<strong>${msg.de === 'admin' ? 'Atendente' : 'Você'}</strong>`;
+                    if (msg.texto) content += `<div>${escapeHtml(msg.texto)}</div>`;
+                    if (msg.tipo === 'imagem' && msg.arquivo) {
+                        content += `<img src="${msg.arquivo}" class="message-img" onclick="abrirImagem('${msg.arquivo}')">`;
+                    } else if (msg.tipo === 'arquivo' && msg.arquivo && msg.nome) {
+                        content += `<div><a href="${msg.arquivo}" download="${msg.nome}" class="message-file">📎 ${msg.nome}</a></div>`;
+                    }
+                    content += `<small>${new Date(msg.timestamp).toLocaleTimeString()}</small>`;
+                    msgDiv.innerHTML = content;
+                    messagesDiv.appendChild(msgDiv);
+                });
+                messagesDiv.scrollTop = messagesDiv.scrollHeight;
+            }
+        });
+        
+        chatUnsubscribe = () => chatRef.off('value', listener);
+    }
 
     async function carregarCasa(id) {
         const snapshot = await db.ref(`casas/${id}`).once('value');
@@ -654,7 +827,7 @@
             return;
         }
         if (casa.status === 'fechada') {
-            const msg = casa.mensagemEncerramento || "Pagamento confirmado. Sala encerrada.";
+            const msg = casa.mensagemEncerramento || "Sala encerrada.";
             document.getElementById('loading').innerHTML = `<div class="sala-fechada"><h1>Sala Encerrada</h1><p>${msg}</p></div>`;
             return;
         }
@@ -670,7 +843,7 @@
                     <div class="timer" id="timerDisplay">--:--:--</div>
                     <div class="timer-warning" id="timerWarning">Sistema será encerrado automaticamente</div>
                 </div>
-                <button class="btn-pagar" onclick="realizarPagamento()">Confirmar Acesso</button>
+                
                 <div class="card">
                     <div class="card-header">
                         <h1>${escapeHtml(casa.nome)}</h1>
@@ -698,21 +871,26 @@
         }
         
         html += `
-                    </div>
-                </div>
-                <div class="card">
-                    <div class="card-header">
-                        <h2>Chat</h2>
-                    </div>
-                    <div class="card-body">
-                        <div id="chatMessages" class="chat-messages"></div>
-                        <div class="chat-input-area">
-                            <input type="text" id="chatInput" placeholder="Digite sua mensagem...">
-                            <button class="file-btn" onclick="document.getElementById('fileInputCliente').click()">📎</button>
-                            <button class="file-btn" onclick="document.getElementById('imageInputCliente').click()">🖼️</button>
-                            <input type="file" id="fileInputCliente" style="display:none" onchange="enviarArquivoCliente(this, 'arquivo')">
-                            <input type="file" id="imageInputCliente" style="display:none" accept="image/*" onchange="enviarArquivoCliente(this, 'imagem')">
-                            <button class="btn-send" onclick="enviarMensagemUsuario()">Enviar</button>
+                        <button class="btn-pagar" onclick="irParaPagamento()">💰 PAGAR AGORA 💰</button>
+                        
+                        <div class="comprovante-area">
+                            <div class="comprovante-title">📎 COMPROVANTES ENVIADOS</div>
+                            <div id="comprovantesList" class="comprovante-list"></div>
+                            <div class="comprovante-input-area">
+                                <input type="text" id="comprovanteDescricao" placeholder="Descrição do comprovante (opcional)">
+                                <button class="file-btn" onclick="document.getElementById('fileInput').click()">📎 Selecionar</button>
+                                <input type="file" id="fileInput" style="display:none" accept="image/*,application/pdf,application/msword,application/vnd.openxmlformats-officedocument.*,image/*">
+                                <button class="btn-enviar" onclick="enviarComprovante()">Enviar</button>
+                            </div>
+                        </div>
+                        
+                        <div id="chatArea" class="chat-area">
+                            <div class="comprovante-title">💬 CHAT COM ATENDENTE</div>
+                            <div id="chatMessages" class="chat-messages"></div>
+                            <div class="chat-input-area">
+                                <input type="text" id="chatInput" placeholder="Digite sua mensagem...">
+                                <button class="chat-send-btn" onclick="enviarMensagemChat()">Enviar</button>
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -720,9 +898,15 @@
         `;
         
         container.innerHTML = html;
+        
         currentExpiraEm = casa.expiraEm || (Date.now() + (48 * 3600000));
         iniciarTimer(currentExpiraEm);
-        iniciarChat(id);
+        carregarComprovantes();
+        
+        if (chatAtivo) {
+            iniciarChat(id);
+        }
+        
         monitorarPopup(id);
     }
 
@@ -748,94 +932,22 @@
             timerDisplay.innerHTML = `${horas.toString().padStart(2, '0')}:${minutos.toString().padStart(2, '0')}:${segundos.toString().padStart(2, '0')}`;
             
             if (diff < 3600000) {
-                timerWarning.innerHTML = 'Menos de 1 hora restante';
+                timerWarning.innerHTML = 'MENOS DE 1 HORA RESTANTE';
                 timerWarning.classList.add('urgent');
+                timerDisplay.style.color = '#ff4444';
             } else if (diff < 7200000) {
-                timerWarning.innerHTML = 'Menos de 2 horas restantes';
+                timerWarning.innerHTML = 'MENOS DE 2 HORAS RESTANTES';
                 timerWarning.classList.add('urgent');
             } else {
-                timerWarning.innerHTML = 'Sistema será encerrado automaticamente';
+                timerWarning.innerHTML = 'SISTEMA SERÁ ENCERRADO AUTOMATICAMENTE';
                 timerWarning.classList.remove('urgent');
+                timerDisplay.style.color = '#e0e0e0';
             }
         }
         
         atualizarTimer();
         if (timerInterval) clearInterval(timerInterval);
         timerInterval = setInterval(atualizarTimer, 1000);
-    }
-
-    window.enviarArquivoCliente = async function(input, tipo) {
-        if (!casaId) return;
-        const file = input.files[0];
-        if (!file) return;
-        
-        const reader = new FileReader();
-        reader.onload = async function(e) {
-            const isImage = tipo === 'imagem' || file.type.startsWith('image/');
-            await db.ref(`chats/${casaId}/mensagens`).push({
-                de: 'user',
-                texto: isImage ? '📷 Imagem' : `📎 ${file.name}`,
-                arquivo: e.target.result,
-                nome: file.name,
-                tipo: isImage ? 'imagem' : 'arquivo',
-                timestamp: Date.now(),
-                lida: false
-            });
-            db.ref(`visitantes/${visitanteId}/ultimaAtividade`).set(Date.now());
-        };
-        reader.readAsDataURL(file);
-        input.value = '';
-    };
-
-    function iniciarChat(id) {
-        if (chatUnsubscribe) chatUnsubscribe();
-        
-        const messagesDiv = document.getElementById('chatMessages');
-        const chatRef = db.ref(`chats/${id}/mensagens`).orderByChild('timestamp');
-        
-        const listener = chatRef.on('value', (snapshot) => {
-            const msgs = snapshot.val();
-            messagesDiv.innerHTML = '';
-            if (msgs) {
-                Object.values(msgs).forEach(msg => {
-                    const msgDiv = document.createElement('div');
-                    msgDiv.className = `message ${msg.de === 'admin' ? 'message-admin' : 'message-user'}`;
-                    
-                    let content = `<strong>${msg.de === 'admin' ? 'Atendente' : 'Você'}</strong>`;
-                    if (msg.texto) content += `<div>${escapeHtml(msg.texto)}</div>`;
-                    
-                    if (msg.tipo === 'imagem' && msg.arquivo) {
-                        content += `<img src="${msg.arquivo}" class="message-img" onclick="abrirImagem('${msg.arquivo}')">`;
-                    } else if (msg.tipo === 'arquivo' && msg.arquivo && msg.nome) {
-                        content += `<div><a href="${msg.arquivo}" download="${msg.nome}" class="message-file">📎 ${msg.nome}</a></div>`;
-                    }
-                    
-                    content += `<small>${new Date(msg.timestamp).toLocaleTimeString()}</small>`;
-                    msgDiv.innerHTML = content;
-                    messagesDiv.appendChild(msgDiv);
-                });
-                messagesDiv.scrollTop = messagesDiv.scrollHeight;
-            } else {
-                messagesDiv.innerHTML = '<div class="empty-state">Nenhuma mensagem</div>';
-            }
-        });
-        
-        chatUnsubscribe = () => chatRef.off('value', listener);
-        
-        window.enviarMensagemUsuario = async function() {
-            const input = document.getElementById('chatInput');
-            const texto = input.value.trim();
-            if (!texto) return;
-            
-            await db.ref(`chats/${id}/mensagens`).push({
-                de: 'user',
-                texto: texto,
-                timestamp: Date.now(),
-                lida: false
-            });
-            input.value = '';
-            db.ref(`visitantes/${visitanteId}/ultimaAtividade`).set(Date.now());
-        };
     }
 
     function escapeHtml(str) {
