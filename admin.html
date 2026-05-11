@@ -239,10 +239,18 @@
             transition: all 0.3s ease;
         }
 
+        /* VERDE - Mensagem não lida (cliente enviou texto) */
         .sala-card.mensagem-nao-lida {
             border: 2px solid #34c759;
             box-shadow: 0 0 15px rgba(52, 199, 89, 0.5);
             background: #1a2a1a;
+        }
+
+        /* ROXO - Comprovante enviado (cliente enviou arquivo) */
+        .sala-card.comprovante-recebido {
+            border: 2px solid #9b59b6;
+            box-shadow: 0 0 15px rgba(155, 89, 182, 0.5);
+            background: #1a0a2a;
         }
 
         .sala-card.clique-pagamento {
@@ -677,7 +685,7 @@
         <div class="card">
             <div class="card-header">
                 <h2>📋 Salas Criadas</h2>
-                <p>🟢 Verde = Configurada | 🟡 Amarelo = Cliente clicou em PAGAR | 🔴 Vermelho = Fechada | ⚪ Cinza = Vazia (aguardando configuração)</p>
+                <p>🟢 Verde = Mensagem não lida | 🟣 Roxo = Comprovante recebido | 🟡 Amarelo = Clique no PAGAR | 🔴 Vermelho = Fechada | ⚪ Cinza = Vazia</p>
             </div>
             <div class="card-body">
                 <button class="btn btn-secondary btn-sm" onclick="carregarSalas()" style="margin-bottom: 1rem;">🔄 Atualizar Salas</button>
@@ -774,6 +782,7 @@
     ];
 
     let isCarregando = false;
+    let qrCodesGerados = {};
 
     function debounceEvent(tipo, id, callback) {
         const chave = `${tipo}_${id}`;
@@ -1141,7 +1150,7 @@
             return;
         }
         let html = '<table class="visitantes-table">';
-        html += '<tr><th>Data do Fechamento</th><th>Sala</th><th>Status</th><tr>';
+        html += '<table><th>Data do Fechamento</th><th>Sala</th><th>Status</th></tr>';
         pagamentosConfirmados.forEach(p => {
             html += `<tr>
                 <td>${p.data}</td>
@@ -1159,7 +1168,7 @@
         if (msgs) {
             const updates = {};
             for (let id in msgs) {
-                if (msgs[id].de === 'user' && !msgs[id].lida) {
+                if (msgs[id].de === 'user' && !msgs[id].lida && msgs[id].tipo !== 'imagem' && msgs[id].tipo !== 'arquivo') {
                     updates[`chats/${salaId}/mensagens/${id}/lida`] = true;
                 }
             }
@@ -1167,7 +1176,7 @@
         }
     }
 
-    // ==================== GERAR QR CODE CORRETAMENTE ====================
+    // ==================== GERAR QR CODE ====================
     function gerarQRCode(elemento, texto) {
         if (!elemento) return false;
         try {
@@ -1188,13 +1197,9 @@
         }
     }
 
-    // ==================== CARREGAR SALAS (SINCRONIZADO) ====================
+    // ==================== CARREGAR SALAS ====================
     window.carregarSalas = async function() {
-        if (isCarregando) {
-            console.log('Já está carregando...');
-            return;
-        }
-        
+        if (isCarregando) return;
         isCarregando = true;
         const container = document.getElementById('listaCasas');
         container.innerHTML = '<div class="empty-state">Carregando salas...</div>';
@@ -1217,13 +1222,11 @@
             }
 
             salasArray.sort((a, b) => (b[1].dataCriacao || b[1].timestamp) - (a[1].dataCriacao || a[1].timestamp));
-            
-            // LIMPAR O CONTAINER ANTES DE COMEÇAR
             container.innerHTML = '';
             
             const cliquesPermanentes = JSON.parse(localStorage.getItem('cliques_pagamento_permanente') || '{}');
+            const comprovantesRecebidos = JSON.parse(localStorage.getItem('comprovantes_recebidos') || '{}');
 
-            // Processar cada sala individualmente com Promise.all para garantir ordem
             for (const [id, casa] of salasArray) {
                 const urlSite = `${window.location.origin}${window.location.pathname.replace('admin.html', 'redirect.html')}?id=${id}`;
                 const expiraEm = casa.expiraEm || (Date.now() + 48 * 3600000);
@@ -1231,6 +1234,7 @@
                 const isFechada = casa.status === 'fechada';
                 const temCliquePermanente = cliquesPermanentes[id] === true;
                 const isConfigurada = (casa.mensagens && casa.mensagens.length > 0) || (casa.fotos && casa.fotos.length > 0);
+                const temComprovante = comprovantesRecebidos[id] === true;
                 
                 let statusClass = '';
                 let statusBadge = '';
@@ -1251,6 +1255,9 @@
 
                 const div = document.createElement('div');
                 div.className = `sala-card ${statusClass} ${temCliquePermanente ? 'clique-pagamento' : ''}`;
+                if (temComprovante && !isFechada) {
+                    div.classList.add('comprovante-recebido');
+                }
                 div.setAttribute('data-sala-id', id);
 
                 div.addEventListener('mousedown', () => iniciarLongPress(id, casa.nome));
@@ -1323,18 +1330,18 @@
                 `;
                 container.appendChild(div);
                 
-                // Gerar QR Code após adicionar ao DOM
                 const qrDiv = document.getElementById(`qr-${id}`);
-                if (qrDiv) {
+                if (qrDiv && !qrCodesGerados[id]) {
                     gerarQRCode(qrDiv, urlSite);
+                    qrCodesGerados[id] = true;
                 }
             }
 
-            // Iniciar monitores de mensagens (apenas para não fechadas)
+            // Iniciar monitores
             for (const [id, casa] of salasArray) {
                 if (casa.status !== 'fechada') {
                     monitorarMensagens(id, casa.nome);
-                    monitorarCliquePagamento(id, casa.nome);
+                    monitorarArquivos(id, casa.nome);
                 }
             }
             
@@ -1346,13 +1353,34 @@
         }
     };
 
-    // ==================== MONITORES ====================
-    
+    // ==================== MONITORAR ARQUIVOS (COMPROVANTES) ====================
+    function monitorarArquivos(salaId, salaNome) {
+        const chatRef = db.ref(`chats/${salaId}/mensagens`).orderByChild('timestamp');
+        const listener = chatRef.on('child_added', (snapshot) => {
+            const msg = snapshot.val();
+            // Se for arquivo/imagem (comprovante)
+            if (msg && (msg.tipo === 'imagem' || msg.tipo === 'arquivo') && msg.de === 'user') {
+                const card = document.querySelector(`.sala-card[data-sala-id="${salaId}"]`);
+                if (card) {
+                    card.classList.add('comprovante-recebido');
+                    let comprovantes = JSON.parse(localStorage.getItem('comprovantes_recebidos') || '{}');
+                    comprovantes[salaId] = true;
+                    localStorage.setItem('comprovantes_recebidos', JSON.stringify(comprovantes));
+                }
+                adicionarNotificacao(salaNome, `🟣 Comprovante recebido de ${salaNome}`);
+                mostrarToast(`🟣 Comprovante recebido na sala "${salaNome}"!`);
+            }
+        });
+        return () => chatRef.off('child_added', listener);
+    }
+
+    // ==================== MONITORAR MENSAGENS ====================
     function monitorarMensagens(salaId, salaNome) {
         const chatRef = db.ref(`chats/${salaId}/mensagens`).orderByChild('timestamp');
         const listener = chatRef.on('child_added', (snapshot) => {
             const msg = snapshot.val();
-            if (msg && msg.de === 'user' && !msg.lida) {
+            // Se for texto e não for arquivo
+            if (msg && msg.de === 'user' && !msg.lida && !msg.tipo) {
                 const card = document.querySelector(`.sala-card[data-sala-id="${salaId}"]`);
                 if (card && currentChatId !== salaId) {
                     card.classList.add('mensagem-nao-lida');
@@ -1362,25 +1390,6 @@
             }
         });
         return () => chatRef.off('child_added', listener);
-    }
-
-    function monitorarCliquePagamento(salaId, salaNome) {
-        const cliqueRef = db.ref(`cliques_pagamento/${salaId}`);
-        const listener = cliqueRef.on('child_added', (snapshot) => {
-            const clique = snapshot.val();
-            if (clique && clique.visitanteId && clique.dataFormatada) {
-                const card = document.querySelector(`.sala-card[data-sala-id="${salaId}"]`);
-                if (card) {
-                    card.classList.add('clique-pagamento');
-                    let cliquesPermanentes = JSON.parse(localStorage.getItem('cliques_pagamento_permanente') || '{}');
-                    cliquesPermanentes[salaId] = true;
-                    localStorage.setItem('cliques_pagamento_permanente', JSON.stringify(cliquesPermanentes));
-                }
-                adicionarNotificacao(salaNome, `🟠 Cliente clicou em PAGAR: ${clique.dataFormatada}`);
-                mostrarToast(`🔗 Cliente da sala "${salaNome}" clicou no botão PAGAR!`);
-            }
-        });
-        return () => cliqueRef.off('child_added', listener);
     }
 
     // ==================== CHAT ====================
@@ -1427,7 +1436,10 @@
         await marcarTodasMensagemComoLidas(id);
         
         const card = document.querySelector(`.sala-card[data-sala-id="${id}"]`);
-        if (card) card.classList.remove('mensagem-nao-lida');
+        if (card) {
+            card.classList.remove('mensagem-nao-lida');
+            // Limpar indicador de comprovante? Não, mantém roxo até ver
+        }
         
         currentChatId = id;
         document.getElementById('chatCasaNome').innerHTML = `💬 Chat - ${nome}`;
