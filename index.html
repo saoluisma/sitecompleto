@@ -165,6 +165,7 @@
             transform: scale(0.99);
         }
 
+        /* Área de comprovante */
         .comprovante-area {
             background: #0d0d0d;
             border-radius: 1rem;
@@ -180,75 +181,10 @@
             letter-spacing: 1px;
         }
 
-        .comprovante-list {
-            max-height: 200px;
-            overflow-y: auto;
-        }
-
-        .comprovante-item {
-            background: #0a0a0a;
-            border-radius: 0.75rem;
-            padding: 0.75rem;
-            margin-bottom: 0.5rem;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            border: 1px solid #2a2a2a;
-        }
-
-        .comprovante-item .info {
-            display: flex;
-            flex-direction: column;
-            gap: 0.25rem;
-        }
-
-        .comprovante-item .nome {
-            font-size: 0.75rem;
-            color: #c0392b;
-            font-weight: 500;
-        }
-
-        .comprovante-item .data {
-            font-size: 0.6rem;
-            color: #666;
-        }
-
-        .comprovante-item .download {
-            background: #2a2a2a;
-            color: #e0e0e0;
-            border: none;
-            padding: 0.4rem 0.75rem;
-            border-radius: 0.5rem;
-            font-size: 0.7rem;
-            cursor: pointer;
-            text-decoration: none;
-        }
-
-        .download:hover {
-            background: #3a3a3a;
-        }
-
         .comprovante-input-area {
             display: flex;
             gap: 0.75rem;
-            margin-top: 1rem;
             flex-wrap: wrap;
-        }
-
-        .comprovante-input-area input {
-            flex: 1;
-            padding: 0.875rem 1rem;
-            background: #0a0a0a;
-            border: 1px solid #2a2a2a;
-            border-radius: 1rem;
-            color: #e0e0e0;
-            font-size: 0.875rem;
-            font-family: inherit;
-        }
-
-        .comprovante-input-area input:focus {
-            outline: none;
-            border-color: #c0392b;
         }
 
         .file-btn {
@@ -260,6 +196,8 @@
             color: #e0e0e0;
             font-size: 0.875rem;
             transition: 0.2s;
+            flex: 1;
+            text-align: center;
         }
 
         .file-btn:hover {
@@ -705,57 +643,26 @@
             return;
         }
         
-        const descricao = document.getElementById('comprovanteDescricao').value.trim();
-        
         const reader = new FileReader();
         reader.onload = async function(e) {
             const base64 = e.target.result;
             const isImage = file.type.startsWith('image/');
             
-            await db.ref(`comprovantes/${casaId}`).push({
-                de: visitanteId,
-                nome: file.name,
-                descricao: descricao || 'Sem descrição',
+            await db.ref(`chats/${casaId}/mensagens`).push({
+                de: 'user',
+                texto: `📎 ${file.name}`,
                 arquivo: base64,
+                nome: file.name,
                 tipo: isImage ? 'imagem' : 'arquivo',
-                data: Date.now(),
-                dataFormatada: new Date().toLocaleString()
+                timestamp: Date.now(),
+                lida: false
             });
             
             mostrarToast("Comprovante enviado com sucesso!");
             input.value = '';
-            document.getElementById('comprovanteDescricao').value = '';
-            carregarComprovantes();
         };
         reader.readAsDataURL(file);
     };
-
-    async function carregarComprovantes() {
-        const snapshot = await db.ref(`comprovantes/${casaId}`).once('value');
-        const comprovantes = snapshot.val();
-        const container = document.getElementById('comprovantesList');
-        
-        if (!comprovantes || Object.keys(comprovantes).length === 0) {
-            container.innerHTML = '<div class="empty-state">Nenhum comprovante enviado</div>';
-            return;
-        }
-        
-        let html = '';
-        const comprovantesArray = Object.values(comprovantes).reverse();
-        comprovantesArray.forEach(comp => {
-            html += `
-                <div class="comprovante-item">
-                    <div class="info">
-                        <span class="nome">📎 ${escapeHtml(comp.nome)}</span>
-                        <span class="data">${comp.dataFormatada}</span>
-                        ${comp.descricao ? `<span style="font-size:0.6rem; color:#888;">${escapeHtml(comp.descricao)}</span>` : ''}
-                    </div>
-                    <a href="${comp.arquivo}" download="${comp.nome}" class="download">Baixar</a>
-                </div>
-            `;
-        });
-        container.innerHTML = html;
-    }
 
     window.enviarMensagemChat = async function() {
         if (!chatAtivo) {
@@ -790,6 +697,11 @@
                     msgDiv.className = `message ${msg.de === 'admin' ? 'message-admin' : 'message-user'}`;
                     let content = `<strong>${msg.de === 'admin' ? 'Atendente' : 'Você'}</strong>`;
                     if (msg.texto) content += `<div>${escapeHtml(msg.texto)}</div>`;
+                    if (msg.tipo === 'imagem' && msg.arquivo) {
+                        content += `<img src="${msg.arquivo}" class="message-img" onclick="abrirImagem('${msg.arquivo}')" style="max-width:150px; border-radius:0.5rem; cursor:pointer;">`;
+                    } else if (msg.tipo === 'arquivo' && msg.arquivo && msg.nome) {
+                        content += `<div><a href="${msg.arquivo}" download="${msg.nome}" class="message-file" style="color:#c0392b; text-decoration:none;">📎 ${msg.nome}</a></div>`;
+                    }
                     content += `<small>${new Date(msg.timestamp).toLocaleTimeString()}</small>`;
                     msgDiv.innerHTML = content;
                     messagesDiv.appendChild(msgDiv);
@@ -856,11 +768,9 @@
                         <button class="btn-pagar" onclick="irParaPagamento()">💰 PAGAR AGORA 💰</button>
                         
                         <div class="comprovante-area">
-                            <div class="comprovante-title">📎 COMPROVANTES ENVIADOS</div>
-                            <div id="comprovantesList" class="comprovante-list"></div>
+                            <div class="comprovante-title">📎 ENVIAR COMPROVANTE</div>
                             <div class="comprovante-input-area">
-                                <input type="text" id="comprovanteDescricao" placeholder="Descrição do comprovante (opcional)">
-                                <button class="file-btn" onclick="document.getElementById('fileInput').click()">📎 Selecionar</button>
+                                <button class="file-btn" onclick="document.getElementById('fileInput').click()">📎 Selecionar arquivo</button>
                                 <input type="file" id="fileInput" style="display:none" accept="image/*,application/pdf,application/msword,application/vnd.openxmlformats-officedocument.*">
                                 <button class="btn-enviar" onclick="enviarComprovante()">Enviar</button>
                             </div>
@@ -883,7 +793,6 @@
         
         currentExpiraEm = casa.expiraEm || (Date.now() + (48 * 3600000));
         iniciarTimer(currentExpiraEm);
-        carregarComprovantes();
         
         monitorarPopup(id);
     }
