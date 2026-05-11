@@ -1,0 +1,954 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes, viewport-fit=cover">
+    <title>Mobile | Configurar Sala</title>
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-database-compat.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            -webkit-tap-highlight-color: transparent;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+            background: #f5f5f5;
+            min-height: 100vh;
+            padding: 1rem;
+        }
+
+        .container {
+            max-width: 500px;
+            margin: 0 auto;
+        }
+
+        .header {
+            text-align: center;
+            margin-bottom: 1.5rem;
+        }
+
+        .header h1 {
+            font-size: 1.75rem;
+            font-weight: 700;
+            background: linear-gradient(135deg, #007aff, #5856d6);
+            -webkit-background-clip: text;
+            background-clip: text;
+            color: transparent;
+        }
+
+        .header p {
+            font-size: 0.875rem;
+            color: #666;
+            margin-top: 0.25rem;
+        }
+
+        .info-card {
+            background: #e3f2fd;
+            border-radius: 1rem;
+            padding: 1rem;
+            margin-bottom: 1.5rem;
+            text-align: center;
+            border-left: 4px solid #007aff;
+        }
+
+        .info-card .label {
+            font-size: 0.7rem;
+            color: #666;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        .info-card .value {
+            font-size: 1rem;
+            font-weight: 600;
+            color: #007aff;
+            word-break: break-all;
+            margin-top: 0.25rem;
+            font-family: monospace;
+        }
+
+        .error-card {
+            background: #ffebee;
+            border-radius: 1rem;
+            padding: 1.5rem;
+            text-align: center;
+            border-left: 4px solid #f44336;
+        }
+
+        .error-card .label {
+            font-size: 0.9rem;
+            color: #c62828;
+            font-weight: 600;
+            margin-bottom: 0.5rem;
+        }
+
+        .error-card .value {
+            font-size: 0.8rem;
+            color: #666;
+        }
+
+        .progress-container {
+            margin-bottom: 2rem;
+        }
+
+        .progress-steps {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 0.5rem;
+        }
+
+        .progress-step {
+            flex: 1;
+            text-align: center;
+            font-size: 0.7rem;
+            color: #ccc;
+            font-weight: 500;
+        }
+
+        .progress-step.active {
+            color: #007aff;
+        }
+
+        .progress-step.completed {
+            color: #34c759;
+        }
+
+        .progress-bar {
+            height: 4px;
+            background: #e0e0e0;
+            border-radius: 2px;
+            overflow: hidden;
+        }
+
+        .progress-fill {
+            height: 100%;
+            width: 0%;
+            background: #007aff;
+            transition: width 0.3s ease;
+            border-radius: 2px;
+        }
+
+        .card {
+            background: white;
+            border-radius: 1.5rem;
+            box-shadow: 0 8px 24px rgba(0, 0, 0, 0.08);
+            overflow: hidden;
+            margin-bottom: 1rem;
+        }
+
+        .card-header {
+            padding: 1.25rem;
+            background: white;
+            border-bottom: 1px solid #f0f0f0;
+        }
+
+        .card-header h2 {
+            font-size: 1.25rem;
+            font-weight: 600;
+            color: #1e1e1e;
+        }
+
+        .card-header p {
+            font-size: 0.75rem;
+            color: #888;
+            margin-top: 0.25rem;
+        }
+
+        .card-body {
+            padding: 1.25rem;
+        }
+
+        .form-group {
+            margin-bottom: 1.25rem;
+        }
+
+        .form-group label {
+            display: block;
+            font-size: 0.875rem;
+            font-weight: 500;
+            color: #333;
+            margin-bottom: 0.5rem;
+        }
+
+        .form-group input {
+            width: 100%;
+            padding: 1rem;
+            border: 1.5px solid #e0e0e0;
+            border-radius: 1rem;
+            font-size: 1rem;
+            transition: all 0.2s;
+            background: #fafafa;
+        }
+
+        .form-group input:focus {
+            outline: none;
+            border-color: #007aff;
+            background: white;
+        }
+
+        .fotos-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 0.75rem;
+            margin-bottom: 1rem;
+        }
+
+        .foto-item {
+            aspect-ratio: 1;
+            background: #f8f9fa;
+            border: 1.5px dashed #ccc;
+            border-radius: 1rem;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            overflow: hidden;
+            position: relative;
+        }
+
+        .foto-item.has-photo {
+            border: 1.5px solid #34c759;
+            background: #f0fdf4;
+        }
+
+        .foto-preview {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+
+        .foto-placeholder {
+            text-align: center;
+            color: #aaa;
+            font-size: 0.7rem;
+        }
+
+        .foto-placeholder span {
+            font-size: 1.5rem;
+        }
+
+        .remove-foto {
+            position: absolute;
+            top: 4px;
+            right: 4px;
+            background: rgba(0, 0, 0, 0.6);
+            color: white;
+            border-radius: 50%;
+            width: 22px;
+            height: 22px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 0.75rem;
+            cursor: pointer;
+        }
+
+        .msgs-list {
+            display: flex;
+            flex-direction: column;
+            gap: 0.75rem;
+            max-height: 400px;
+            overflow-y: auto;
+        }
+
+        .msg-item {
+            background: #f8f9fa;
+            border: 1.5px solid #e9ecef;
+            border-radius: 1rem;
+            padding: 1rem;
+            display: flex;
+            align-items: flex-start;
+            gap: 0.75rem;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .msg-item.selected {
+            background: #e3f2fd;
+            border-color: #007aff;
+        }
+
+        .msg-check {
+            width: 24px;
+            height: 24px;
+            border: 2px solid #ccc;
+            border-radius: 8px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            flex-shrink: 0;
+            font-size: 14px;
+            font-weight: bold;
+        }
+
+        .msg-text {
+            flex: 1;
+            font-size: 0.875rem;
+            color: #333;
+            line-height: 1.4;
+        }
+
+        .btn {
+            padding: 1rem;
+            font-size: 1rem;
+            font-weight: 600;
+            border-radius: 1rem;
+            border: none;
+            cursor: pointer;
+            transition: all 0.2s;
+            font-family: inherit;
+        }
+
+        .btn-primary {
+            background: #007aff;
+            color: white;
+        }
+
+        .btn-primary:active {
+            background: #005fcb;
+            transform: scale(0.98);
+        }
+
+        .btn-primary.disabled {
+            background: #ccc;
+            cursor: not-allowed;
+            opacity: 0.6;
+        }
+
+        .btn-secondary {
+            background: #e9ecef;
+            color: #495057;
+        }
+
+        .btn-secondary:active {
+            background: #dee2e6;
+        }
+
+        .btn-success {
+            background: #34c759;
+            color: white;
+        }
+
+        .nav-buttons {
+            display: flex;
+            gap: 0.75rem;
+            margin-top: 1.5rem;
+        }
+
+        .nav-buttons .btn {
+            flex: 1;
+        }
+
+        .result-card {
+            text-align: center;
+        }
+
+        .success-icon {
+            width: 64px;
+            height: 64px;
+            background: #34c759;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin: 0 auto 1rem;
+        }
+
+        .success-icon::after {
+            content: "✓";
+            font-size: 2.5rem;
+            color: white;
+            font-weight: bold;
+        }
+
+        .info-text {
+            font-size: 0.7rem;
+            color: #888;
+            margin-top: 0.5rem;
+            word-break: break-all;
+            background: #f8f9fa;
+            padding: 0.75rem;
+            border-radius: 0.75rem;
+        }
+
+        .step-content {
+            display: none;
+            animation: fadeIn 0.3s ease;
+        }
+
+        .step-content.active {
+            display: block;
+        }
+
+        @keyframes fadeIn {
+            from {
+                opacity: 0;
+                transform: translateX(20px);
+            }
+            to {
+                opacity: 1;
+                transform: translateX(0);
+            }
+        }
+
+        .counter {
+            font-size: 0.7rem;
+            color: #888;
+            margin-top: 0.5rem;
+            text-align: center;
+        }
+
+        .empty-state {
+            text-align: center;
+            padding: 2rem;
+            color: #999;
+        }
+
+        .btn-reabrir {
+            background: #ff9800;
+            color: white;
+            margin-top: 1rem;
+        }
+
+        .btn-reabrir:hover {
+            background: #f57c00;
+        }
+    </style>
+</head>
+<body>
+<div class="container">
+    <div class="header">
+        <h1>📱 Configurar Sala</h1>
+        <p>Escaneie um QR Code de sala vazia</p>
+    </div>
+
+    <div id="salaInfoCard" class="info-card" style="display: none;">
+        <div class="label">QR CODE ESCANEADO - ID DA SALA</div>
+        <div class="value" id="salaIdDisplay">---</div>
+        <div class="label" style="margin-top: 0.5rem;">NOME DA SALA</div>
+        <div class="value" id="salaNomeDisplay" style="font-size: 0.9rem;">---</div>
+    </div>
+
+    <div id="errorCard" class="error-card" style="display: none;">
+        <div class="label" id="errorTitle">⚠️ Ação não permitida</div>
+        <div class="value" id="errorMessage">Esta sala já está configurada ou fechada.</div>
+        <button class="btn btn-secondary" id="btnVoltarInicio" style="margin-top: 1rem;">← Voltar</button>
+    </div>
+
+    <div id="configForm" style="display: none;">
+        <div class="progress-container">
+            <div class="progress-steps">
+                <div class="progress-step" id="stepLabel1">1. Número</div>
+                <div class="progress-step" id="stepLabel2">2. Fotos</div>
+                <div class="progress-step" id="stepLabel3">3. Mensagens</div>
+                <div class="progress-step" id="stepLabel4">4. Concluir</div>
+            </div>
+            <div class="progress-bar">
+                <div class="progress-fill" id="progressFill"></div>
+            </div>
+        </div>
+
+        <!-- Etapa 1: Número da Casa -->
+        <div id="step1" class="step-content active">
+            <div class="card">
+                <div class="card-header">
+                    <h2>Qual o número da sala?</h2>
+                    <p>Digite um identificador para esta sala</p>
+                </div>
+                <div class="card-body">
+                    <div class="form-group">
+                        <label>Número / Nome da Sala</label>
+                        <input type="text" id="numeroCasa" placeholder="Ex: 101, Apto 42, Loja 1" autocomplete="off">
+                    </div>
+                    <button class="btn btn-primary" id="btnProximo1">Continuar →</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Etapa 2: Fotos -->
+        <div id="step2" class="step-content">
+            <div class="card">
+                <div class="card-header">
+                    <h2>📸 Adicione fotos</h2>
+                    <p>Selecione até 5 fotos para esta sala</p>
+                </div>
+                <div class="card-body">
+                    <div class="fotos-grid" id="fotosGrid"></div>
+                    <div class="counter" id="fotosCounter">0 de 5 fotos selecionadas</div>
+                    <div class="nav-buttons">
+                        <button class="btn btn-secondary" id="btnVoltar2">← Voltar</button>
+                        <button class="btn btn-primary" id="btnProximo2">Continuar →</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Etapa 3: Mensagens -->
+        <div id="step3" class="step-content">
+            <div class="card">
+                <div class="card-header">
+                    <h2>💬 Selecione as mensagens</h2>
+                    <p>Escolha até 5 mensagens</p>
+                </div>
+                <div class="card-body">
+                    <div id="mensagensList" class="msgs-list">
+                        <div class="empty-state">Carregando mensagens...</div>
+                    </div>
+                    <div class="counter" id="msgsCounter">0 de 5 mensagens selecionadas</div>
+                    <div class="nav-buttons">
+                        <button class="btn btn-secondary" id="btnVoltar3">← Voltar</button>
+                        <button class="btn btn-primary" id="btnProximo3">Continuar →</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Etapa 4: Resultado -->
+        <div id="step4" class="step-content">
+            <div class="card result-card">
+                <div class="card-header">
+                    <h2>Sala configurada com sucesso!</h2>
+                    <p>Agora os clientes podem acessar</p>
+                </div>
+                <div class="card-body">
+                    <div class="success-icon"></div>
+                    <div id="resumoInfo" class="info-text"></div>
+                    <div class="nav-buttons">
+                        <button class="btn btn-secondary" id="btnFinalizar">✅ Concluir</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    const firebaseConfig = {
+        databaseURL: "https://dados-c9c96-default-rtdb.firebaseio.com/"
+    };
+    firebase.initializeApp(firebaseConfig);
+    const db = firebase.database();
+
+    let salaId = '';
+    let salaOriginal = null;
+    let numeroCasa = '';
+    let fotosBase64 = [];
+    let mensagensSelecionadas = [];
+    let mensagensPredefinidas = [];
+    let currentStep = 1;
+    let fotosSlots = [];
+    let isUpdating = false;
+
+    // ==================== LER ID DA URL ====================
+    function getSalaIdFromURL() {
+        const urlParams = new URLSearchParams(window.location.search);
+        const id = urlParams.get('id');
+        if (id) {
+            salaId = id;
+            return true;
+        }
+        return false;
+    }
+
+    // Verificar se a sala pode ser configurada (vazia)
+    async function verificarSalaParaConfiguracao() {
+        if (!salaId) return false;
+        
+        try {
+            const snapshot = await db.ref(`casas/${salaId}`).once('value');
+            const sala = snapshot.val();
+            
+            if (!sala) {
+                mostrarErro("Sala não encontrada", "Verifique se o QR Code é válido.");
+                return false;
+            }
+            
+            if (sala.status === 'fechada') {
+                mostrarErro("Sala fechada", "Esta sala já foi finalizada e não pode ser reconfigurada.");
+                return false;
+            }
+            
+            // Verificar se a sala já foi configurada (tem mensagens ou fotos)
+            const jaConfigurada = (sala.mensagens && sala.mensagens.length > 0) || (sala.fotos && sala.fotos.length > 0);
+            
+            if (jaConfigurada) {
+                mostrarErro("Sala já configurada", "Esta sala já foi preenchida. Se precisar reconfigurar, solicite ao administrador que reabra a sala.");
+                return false;
+            }
+            
+            salaOriginal = sala;
+            
+            // Atualizar UI com informações
+            document.getElementById('salaIdDisplay').innerText = salaId;
+            document.getElementById('salaNomeDisplay').innerText = sala.nome || 'Sala sem nome';
+            document.getElementById('salaInfoCard').style.display = 'block';
+            
+            return true;
+        } catch (error) {
+            console.error('Erro ao verificar sala:', error);
+            mostrarErro("Erro de conexão", "Não foi possível verificar a sala. Tente novamente.");
+            return false;
+        }
+    }
+
+    function mostrarErro(titulo, mensagem) {
+        document.getElementById('errorTitle').innerText = titulo;
+        document.getElementById('errorMessage').innerHTML = mensagem;
+        document.getElementById('errorCard').style.display = 'block';
+        document.getElementById('salaInfoCard').style.display = 'none';
+        document.getElementById('configForm').style.display = 'none';
+    }
+
+    // Carregar mensagens predefinidas
+    async function carregarMensagensPredefinidas() {
+        try {
+            const snapshot = await db.ref('config/mensagens_predefinidas').once('value');
+            const firebaseMsgs = snapshot.val();
+            
+            if (firebaseMsgs && Array.isArray(firebaseMsgs) && firebaseMsgs.length === 5) {
+                mensagensPredefinidas = firebaseMsgs;
+                localStorage.setItem('mensagens_predefinidas_mobile_backup', JSON.stringify(mensagensPredefinidas));
+            } else {
+                const backup = localStorage.getItem('mensagens_predefinidas_mobile_backup');
+                if (backup) {
+                    mensagensPredefinidas = JSON.parse(backup);
+                } else {
+                    mensagensPredefinidas = [
+                        "🏠 Bem-vindo à sua sala!",
+                        "✨ Aproveite sua experiência",
+                        "💬 Qualquer dúvida, chame no chat",
+                        "🙏 Obrigado pela visita!",
+                        "⭐ Volte sempre!"
+                    ];
+                }
+            }
+            renderizarMensagens();
+        } catch (error) {
+            console.error('Erro ao carregar mensagens:', error);
+            mensagensPredefinidas = [
+                "🏠 Bem-vindo à sua sala!",
+                "✨ Aproveite sua experiência",
+                "💬 Qualquer dúvida, chame no chat",
+                "🙏 Obrigado pela visita!",
+                "⭐ Volte sempre!"
+            ];
+            renderizarMensagens();
+        }
+    }
+
+    function renderizarMensagens() {
+        const container = document.getElementById('mensagensList');
+        if (!container) return;
+        
+        container.innerHTML = mensagensPredefinidas.map((msg, index) => `
+            <div class="msg-item" data-msg-index="${index}">
+                <div class="msg-check">${mensagensSelecionadas.includes(index) ? '✓' : ''}</div>
+                <div class="msg-text">${escapeHtml(msg)}</div>
+            </div>
+        `).join('');
+        
+        document.querySelectorAll('.msg-item').forEach(item => {
+            const idx = parseInt(item.dataset.msgIndex);
+            if (mensagensSelecionadas.includes(idx)) {
+                item.classList.add('selected');
+            }
+            item.addEventListener('click', () => toggleMensagem(idx));
+        });
+        
+        atualizarContadorMsgs();
+    }
+
+    function toggleMensagem(index) {
+        const item = document.querySelector(`.msg-item[data-msg-index="${index}"]`);
+        const wasSelected = mensagensSelecionadas.includes(index);
+
+        if (wasSelected) {
+            mensagensSelecionadas = mensagensSelecionadas.filter(i => i !== index);
+            item.classList.remove('selected');
+            const checkDiv = item.querySelector('.msg-check');
+            if (checkDiv) checkDiv.textContent = '';
+        } else {
+            if (mensagensSelecionadas.length < 5) {
+                mensagensSelecionadas.push(index);
+                item.classList.add('selected');
+                const checkDiv = item.querySelector('.msg-check');
+                if (checkDiv) checkDiv.textContent = '✓';
+            } else {
+                alert("Você pode selecionar no máximo 5 mensagens");
+            }
+        }
+        atualizarContadorMsgs();
+    }
+
+    function atualizarContadorMsgs() {
+        const counter = document.getElementById('msgsCounter');
+        if (counter) {
+            counter.innerText = `${mensagensSelecionadas.length} de 5 mensagens selecionadas`;
+        }
+    }
+
+    // Setup das fotos
+    function setupFotosGrid() {
+        const grid = document.getElementById('fotosGrid');
+        fotosBase64 = [];
+        fotosSlots = [];
+        grid.innerHTML = '';
+        for (let i = 0; i < 5; i++) {
+            const slot = document.createElement('div');
+            slot.className = 'foto-item';
+            slot.setAttribute('data-slot', i);
+            slot.onclick = () => abrirSeletorFoto(i);
+            const placeholder = document.createElement('div');
+            placeholder.className = 'foto-placeholder';
+            placeholder.innerHTML = '<span>📷</span><br>Foto ' + (i + 1);
+            slot.appendChild(placeholder);
+            grid.appendChild(slot);
+            fotosSlots.push({
+                element: slot,
+                placeholder: placeholder,
+                img: null
+            });
+        }
+        atualizarContadorFotos();
+    }
+
+    function abrirSeletorFoto(slotIndex) {
+        const input = document.createElement('input');
+        input.type = 'file';
+        input.accept = 'image/*';
+        input.onchange = (e) => {
+            if (e.target.files && e.target.files[0]) {
+                const reader = new FileReader();
+                reader.onload = (event) => {
+                    adicionarFoto(slotIndex, event.target.result);
+                };
+                reader.readAsDataURL(e.target.files[0]);
+            }
+        };
+        input.click();
+    }
+
+    function adicionarFoto(slotIndex, base64) {
+        const slot = fotosSlots[slotIndex];
+        slot.element.innerHTML = '';
+        const img = document.createElement('img');
+        img.src = base64;
+        img.className = 'foto-preview';
+        const removeBtn = document.createElement('div');
+        removeBtn.className = 'remove-foto';
+        removeBtn.innerHTML = '✕';
+        removeBtn.onclick = (e) => {
+            e.stopPropagation();
+            removerFoto(slotIndex);
+        };
+        slot.element.appendChild(img);
+        slot.element.appendChild(removeBtn);
+        slot.element.classList.add('has-photo');
+        slot.img = base64;
+        fotosBase64[slotIndex] = base64;
+        atualizarContadorFotos();
+    }
+
+    function removerFoto(slotIndex) {
+        const slot = fotosSlots[slotIndex];
+        slot.element.innerHTML = '';
+        const placeholder = document.createElement('div');
+        placeholder.className = 'foto-placeholder';
+        placeholder.innerHTML = '<span>📷</span><br>Foto ' + (slotIndex + 1);
+        slot.element.appendChild(placeholder);
+        slot.element.classList.remove('has-photo');
+        slot.img = null;
+        fotosBase64[slotIndex] = null;
+        atualizarContadorFotos();
+    }
+
+    function atualizarContadorFotos() {
+        const count = fotosBase64.filter(f => f !== null && f !== undefined).length;
+        const counter = document.getElementById('fotosCounter');
+        if (counter) {
+            counter.innerText = `${count} de 5 fotos selecionadas`;
+        }
+    }
+
+    function getFotosArray() {
+        return fotosBase64.filter(f => f !== null && f !== undefined);
+    }
+
+    function atualizarProgresso() {
+        const fillWidth = ((currentStep - 1) / 3) * 100;
+        document.getElementById('progressFill').style.width = `${fillWidth}%`;
+        for (let i = 1; i <= 4; i++) {
+            const label = document.getElementById(`stepLabel${i}`);
+            if (label) {
+                label.classList.remove('active', 'completed');
+                if (i < currentStep) {
+                    label.classList.add('completed');
+                } else if (i === currentStep) {
+                    label.classList.add('active');
+                }
+            }
+        }
+    }
+
+    function mostrarEtapa(step) {
+        for (let i = 1; i <= 4; i++) {
+            const el = document.getElementById(`step${i}`);
+            if (el) el.classList.remove('active');
+        }
+        const activeEl = document.getElementById(`step${currentStep}`);
+        if (activeEl) activeEl.classList.add('active');
+        atualizarProgresso();
+    }
+
+    // Validar etapa 1
+    function validarEtapa1() {
+        numeroCasa = document.getElementById('numeroCasa').value.trim();
+        if (!numeroCasa) {
+            alert("Digite o número/identificador da sala");
+            return false;
+        }
+        return true;
+    }
+
+    // Validar etapa 3
+    function validarEtapa3() {
+        if (mensagensSelecionadas.length === 0) {
+            alert("Selecione pelo menos uma mensagem");
+            return false;
+        }
+        return true;
+    }
+
+    // CONFIGURAR a sala existente
+    async function configurarSala() {
+        if (isUpdating) return;
+        isUpdating = true;
+        
+        const btnProximo = document.getElementById('btnProximo3');
+        if (btnProximo) {
+            btnProximo.disabled = true;
+            btnProximo.classList.add('disabled');
+            btnProximo.innerText = 'Configurando...';
+        }
+        
+        try {
+            const mensagensTexto = mensagensSelecionadas.map(i => mensagensPredefinidas[i]);
+            const fotosArray = getFotosArray();
+            const tempoHoras = salaOriginal.tempoHoras || 48;
+
+            // Atualizar a sala existente (agora configurada)
+            await db.ref(`casas/${salaId}`).update({
+                nome: `Casa ${numeroCasa}`,
+                numero: numeroCasa,
+                mensagens: mensagensTexto,
+                fotos: fotosArray,
+                atualizadoPor: 'mobile',
+                dataAtualizacao: Date.now(),
+                status: 'ativa',
+                configurada: true
+            });
+
+            const resumo = document.getElementById('resumoInfo');
+            resumo.innerHTML = `
+                <strong>${escapeHtml(`Casa ${numeroCasa}`)}</strong><br>
+                ID da Sala: ${salaId}<br>
+                ${mensagensTexto.length} mensagens | ${fotosArray.length} fotos<br>
+                <small>Sala configurada! Agora os clientes podem acessar.</small>
+            `;
+            
+        } catch (error) {
+            console.error('Erro ao configurar sala:', error);
+            alert('Erro ao configurar a sala. Tente novamente.');
+        } finally {
+            isUpdating = false;
+            if (btnProximo) {
+                btnProximo.disabled = false;
+                btnProximo.classList.remove('disabled');
+                btnProximo.innerText = 'Continuar →';
+            }
+        }
+    }
+
+    // Navegação entre etapas
+    async function irParaEtapa(etapa) {
+        if (etapa === 2 && currentStep === 1) {
+            if (!validarEtapa1()) return;
+        }
+        
+        if (etapa === 4 && currentStep === 3) {
+            if (!validarEtapa3()) return;
+            await configurarSala();
+        }
+        
+        currentStep = etapa;
+        mostrarEtapa(currentStep);
+
+        if (currentStep === 2) {
+            setupFotosGrid();
+        }
+        
+        if (currentStep === 3) {
+            await carregarMensagensPredefinidas();
+        }
+    }
+
+    function finalizar() {
+        // Redirecionar para o index (página inicial)
+        window.location.href = 'index.html';
+    }
+
+    function voltarInicio() {
+        window.location.href = 'mobile.html';
+    }
+
+    function escapeHtml(str) {
+        if (!str) return '';
+        return str.replace(/[&<>]/g, function(m) {
+            if (m === '&') return '&amp;';
+            if (m === '<') return '&lt;';
+            if (m === '>') return '&gt;';
+            return m;
+        });
+    }
+
+    // ==================== INICIALIZAÇÃO ====================
+    
+    async function iniciar() {
+        const temId = getSalaIdFromURL();
+        
+        if (!temId) {
+            mostrarErro("Nenhum QR Code detectado", "Escaneie um QR Code de uma sala vazia para configurá-la.");
+            return;
+        }
+        
+        const podeConfigurar = await verificarSalaParaConfiguracao();
+        if (!podeConfigurar) return;
+        
+        // Mostrar formulário de configuração
+        document.getElementById('configForm').style.display = 'block';
+        document.getElementById('errorCard').style.display = 'none';
+        
+        // Inicializar componentes
+        setupFotosGrid();
+        mostrarEtapa(1);
+    }
+
+    // Configurar event listeners
+    document.getElementById('btnProximo1')?.addEventListener('click', () => irParaEtapa(2));
+    document.getElementById('btnVoltar2')?.addEventListener('click', () => irParaEtapa(1));
+    document.getElementById('btnProximo2')?.addEventListener('click', () => irParaEtapa(3));
+    document.getElementById('btnVoltar3')?.addEventListener('click', () => irParaEtapa(2));
+    document.getElementById('btnProximo3')?.addEventListener('click', () => irParaEtapa(4));
+    document.getElementById('btnFinalizar')?.addEventListener('click', finalizar);
+    document.getElementById('btnVoltarInicio')?.addEventListener('click', voltarInicio);
+
+    // Iniciar
+    iniciar();
+</script>
+</body>
+</html>

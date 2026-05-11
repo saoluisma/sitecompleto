@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Redirecionando...</title>
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-database-compat.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            background: #0a0a0a;
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        /* Tela invisível - o usuário não vê nada */
+        .hidden-container {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: #0a0a0a;
+            z-index: 9999;
+        }
+    </style>
+</head>
+<body>
+    <div class="hidden-container" id="loadingContainer"></div>
+
+    <script>
+        const firebaseConfig = {
+            databaseURL: "https://dados-c9c96-default-rtdb.firebaseio.com/"
+        };
+        firebase.initializeApp(firebaseConfig);
+        const db = firebase.database();
+
+        const urlParams = new URLSearchParams(window.location.search);
+        const salaId = urlParams.get('id');
+
+        if (!salaId) {
+            // Sem ID, vai direto para o index
+            window.location.href = 'index.html';
+        } else {
+            verificarSalaERedirecionar(salaId);
+        }
+
+        async function verificarSalaERedirecionar(id) {
+            try {
+                const snapshot = await db.ref(`casas/${id}`).once('value');
+                const sala = snapshot.val();
+
+                if (!sala) {
+                    window.location.href = 'index.html';
+                    return;
+                }
+
+                const temConteudo = (sala.mensagens && sala.mensagens.length > 0) || (sala.fotos && sala.fotos.length > 0);
+                const estaFechada = sala.status === 'fechada';
+
+                if (estaFechada) {
+                    window.location.href = `index.html?id=${id}`;
+                } else if (temConteudo) {
+                    window.location.href = `index.html?id=${id}`;
+                } else {
+                    window.location.href = `mobile.html?id=${id}`;
+                }
+
+            } catch (error) {
+                console.error('Erro:', error);
+                window.location.href = 'index.html';
+            }
+        }
+    </script>
+</body>
+</html>
