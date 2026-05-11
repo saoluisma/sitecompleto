@@ -773,7 +773,7 @@
         "⭐ Volte sempre!"
     ];
 
-    let qrCodesGerados = {};
+    let isCarregando = false;
 
     function debounceEvent(tipo, id, callback) {
         const chave = `${tipo}_${id}`;
@@ -1141,7 +1141,7 @@
             return;
         }
         let html = '<table class="visitantes-table">';
-        html += '<tr><th>Data do Fechamento</th><th>Sala</th><th>Status</th></tr>';
+        html += '<tr><th>Data do Fechamento</th><th>Sala</th><th>Status</th><tr>';
         pagamentosConfirmados.forEach(p => {
             html += `<tr>
                 <td>${p.data}</td>
@@ -1167,157 +1167,182 @@
         }
     }
 
-    // ==================== CARREGAR SALAS ====================
-    
+    // ==================== GERAR QR CODE CORRETAMENTE ====================
+    function gerarQRCode(elemento, texto) {
+        if (!elemento) return false;
+        try {
+            elemento.innerHTML = '';
+            new QRCode(elemento, {
+                text: texto,
+                width: 100,
+                height: 100,
+                colorDark: "#000000",
+                colorLight: "#ffffff",
+                correctLevel: QRCode.CorrectLevel.H
+            });
+            return true;
+        } catch(e) {
+            console.error('Erro ao gerar QR Code:', e);
+            elemento.innerHTML = '<div style="color:red; font-size:10px; text-align:center;">Erro<br>no QR</div>';
+            return false;
+        }
+    }
+
+    // ==================== CARREGAR SALAS (SINCRONIZADO) ====================
     window.carregarSalas = async function() {
+        if (isCarregando) {
+            console.log('Já está carregando...');
+            return;
+        }
+        
+        isCarregando = true;
         const container = document.getElementById('listaCasas');
         container.innerHTML = '<div class="empty-state">Carregando salas...</div>';
 
-        const snapshot = await db.ref('casas').once('value');
-        const casas = snapshot.val();
-        
-        if (!casas) {
-            container.innerHTML = '<div class="empty-state">Nenhuma sala criada ainda</div>';
-            return;
-        }
-
-        const salasArray = Object.entries(casas);
-        if (salasArray.length === 0) {
-            container.innerHTML = '<div class="empty-state">Nenhuma sala criada ainda</div>';
-            return;
-        }
-
-        salasArray.sort((a, b) => (b[1].dataCriacao || b[1].timestamp) - (a[1].dataCriacao || a[1].timestamp));
-        container.innerHTML = '';
-
-        const cliquesPermanentes = JSON.parse(localStorage.getItem('cliques_pagamento_permanente') || '{}');
-
-        for (let [id, casa] of salasArray) {
-            const urlSite = `${window.location.origin}${window.location.pathname.replace('admin.html', 'redirect.html')}?id=${id}`;
-            const expiraEm = casa.expiraEm || (Date.now() + 48 * 3600000);
-            const horasRest = Math.max(0, Math.floor((expiraEm - Date.now()) / 3600000));
-            const isFechada = casa.status === 'fechada';
-            const temCliquePermanente = cliquesPermanentes[id] === true;
-            const isConfigurada = (casa.mensagens && casa.mensagens.length > 0) || (casa.fotos && casa.fotos.length > 0);
+        try {
+            const snapshot = await db.ref('casas').once('value');
+            const casas = snapshot.val();
             
-            let statusClass = '';
-            let statusBadge = '';
-            if (isFechada) {
-                statusClass = 'fechada';
-                statusBadge = '<span class="badge-fechada">🔒 Fechada</span>';
-            } else if (isConfigurada) {
-                statusClass = 'configurada';
-                statusBadge = '<span class="badge-configurada">✅ Configurada</span>';
-            } else {
-                statusClass = 'vazia';
-                statusBadge = '<span class="badge-vazia">⚪ Vazia</span>';
+            if (!casas) {
+                container.innerHTML = '<div class="empty-state">Nenhuma sala criada ainda</div>';
+                isCarregando = false;
+                return;
             }
 
-            // Verificar se chat está ativo
-            const chatSnapshot = await db.ref(`configuracoes/${id}/chatAtivo`).once('value');
-            const chatAtivo = chatSnapshot.val() === true;
+            const salasArray = Object.entries(casas);
+            if (salasArray.length === 0) {
+                container.innerHTML = '<div class="empty-state">Nenhuma sala criada ainda</div>';
+                isCarregando = false;
+                return;
+            }
 
-            const div = document.createElement('div');
-            div.className = `sala-card ${statusClass} ${temCliquePermanente ? 'clique-pagamento' : ''}`;
-            div.setAttribute('data-sala-id', id);
+            salasArray.sort((a, b) => (b[1].dataCriacao || b[1].timestamp) - (a[1].dataCriacao || a[1].timestamp));
+            
+            // LIMPAR O CONTAINER ANTES DE COMEÇAR
+            container.innerHTML = '';
+            
+            const cliquesPermanentes = JSON.parse(localStorage.getItem('cliques_pagamento_permanente') || '{}');
 
-            div.addEventListener('mousedown', () => iniciarLongPress(id, casa.nome));
-            div.addEventListener('mouseup', cancelarLongPress);
-            div.addEventListener('mouseleave', cancelarLongPress);
-            div.addEventListener('touchstart', (e) => { e.preventDefault(); iniciarLongPress(id, casa.nome); });
-            div.addEventListener('touchend', cancelarLongPress);
-            div.addEventListener('touchcancel', cancelarLongPress);
+            // Processar cada sala individualmente com Promise.all para garantir ordem
+            for (const [id, casa] of salasArray) {
+                const urlSite = `${window.location.origin}${window.location.pathname.replace('admin.html', 'redirect.html')}?id=${id}`;
+                const expiraEm = casa.expiraEm || (Date.now() + 48 * 3600000);
+                const horasRest = Math.max(0, Math.floor((expiraEm - Date.now()) / 3600000));
+                const isFechada = casa.status === 'fechada';
+                const temCliquePermanente = cliquesPermanentes[id] === true;
+                const isConfigurada = (casa.mensagens && casa.mensagens.length > 0) || (casa.fotos && casa.fotos.length > 0);
+                
+                let statusClass = '';
+                let statusBadge = '';
+                if (isFechada) {
+                    statusClass = 'fechada';
+                    statusBadge = '<span class="badge-fechada">🔒 Fechada</span>';
+                } else if (isConfigurada) {
+                    statusClass = 'configurada';
+                    statusBadge = '<span class="badge-configurada">✅ Configurada</span>';
+                } else {
+                    statusClass = 'vazia';
+                    statusBadge = '<span class="badge-vazia">⚪ Vazia</span>';
+                }
 
-            let popupHtml = '';
-            if (casa.popup) {
-                if (casa.popup.ativo) {
-                    popupHtml = `
-                        <div class="popup-controls">
-                            <div class="popup-controls-title">🖼️ POPUP</div>
-                            <div style="display: flex; gap: 0.5rem; flex-wrap: wrap;">
-                                <button class="btn btn-danger btn-sm" onclick="event.stopPropagation(); desativarPopup('${id}')">❌ Desativar</button>
-                                <button class="btn btn-warning btn-sm" onclick="event.stopPropagation(); reativarPopup('${id}', '${escapeHtml(casa.nome)}')">🔄 Reativar</button>
-                                <button class="btn btn-secondary btn-sm" onclick="event.stopPropagation(); removerPopup('${id}')">🗑️ Remover</button>
+                // Verificar se chat está ativo
+                const chatSnapshot = await db.ref(`configuracoes/${id}/chatAtivo`).once('value');
+                const chatAtivo = chatSnapshot.val() === true;
+
+                const div = document.createElement('div');
+                div.className = `sala-card ${statusClass} ${temCliquePermanente ? 'clique-pagamento' : ''}`;
+                div.setAttribute('data-sala-id', id);
+
+                div.addEventListener('mousedown', () => iniciarLongPress(id, casa.nome));
+                div.addEventListener('mouseup', cancelarLongPress);
+                div.addEventListener('mouseleave', cancelarLongPress);
+                div.addEventListener('touchstart', (e) => { e.preventDefault(); iniciarLongPress(id, casa.nome); });
+                div.addEventListener('touchend', cancelarLongPress);
+                div.addEventListener('touchcancel', cancelarLongPress);
+
+                let popupHtml = '';
+                if (casa.popup) {
+                    if (casa.popup.ativo) {
+                        popupHtml = `
+                            <div class="popup-controls">
+                                <div class="popup-controls-title">🖼️ POPUP</div>
+                                <div style="display: flex; gap: 0.5rem; flex-wrap: wrap;">
+                                    <button class="btn btn-danger btn-sm" onclick="event.stopPropagation(); desativarPopup('${id}')">❌ Desativar</button>
+                                    <button class="btn btn-warning btn-sm" onclick="event.stopPropagation(); reativarPopup('${id}', '${escapeHtml(casa.nome)}')">🔄 Reativar</button>
+                                    <button class="btn btn-secondary btn-sm" onclick="event.stopPropagation(); removerPopup('${id}')">🗑️ Remover</button>
+                                </div>
+                                <div class="popup-status-active">✅ Ativo (v${casa.popup.versao || 1}) - ${casa.popup.duracao / 1000}s</div>
                             </div>
-                            <div class="popup-status-active">✅ Ativo (v${casa.popup.versao || 1}) - ${casa.popup.duracao / 1000}s</div>
-                        </div>
-                    `;
+                        `;
+                    } else {
+                        popupHtml = `
+                            <div class="popup-controls">
+                                <div class="popup-controls-title">🖼️ POPUP</div>
+                                <div style="display: flex; gap: 0.5rem; flex-wrap: wrap;">
+                                    <button class="btn btn-success btn-sm" onclick="event.stopPropagation(); reativarPopup('${id}', '${escapeHtml(casa.nome)}')">🔄 Reativar</button>
+                                    <button class="btn btn-secondary btn-sm" onclick="event.stopPropagation(); configurarPopup('${id}', '${escapeHtml(casa.nome)}')">📷 Editar</button>
+                                    <button class="btn btn-secondary btn-sm" onclick="event.stopPropagation(); removerPopup('${id}')">🗑️ Remover</button>
+                                </div>
+                                <div class="popup-status-inactive">⚪ Desativado</div>
+                            </div>
+                        `;
+                    }
                 } else {
                     popupHtml = `
                         <div class="popup-controls">
                             <div class="popup-controls-title">🖼️ POPUP</div>
-                            <div style="display: flex; gap: 0.5rem; flex-wrap: wrap;">
-                                <button class="btn btn-success btn-sm" onclick="event.stopPropagation(); reativarPopup('${id}', '${escapeHtml(casa.nome)}')">🔄 Reativar</button>
-                                <button class="btn btn-secondary btn-sm" onclick="event.stopPropagation(); configurarPopup('${id}', '${escapeHtml(casa.nome)}')">📷 Editar</button>
-                                <button class="btn btn-secondary btn-sm" onclick="event.stopPropagation(); removerPopup('${id}')">🗑️ Remover</button>
-                            </div>
-                            <div class="popup-status-inactive">⚪ Desativado</div>
+                            <button class="btn btn-secondary btn-sm" onclick="event.stopPropagation(); configurarPopup('${id}', '${escapeHtml(casa.nome)}')">📷 Configurar</button>
+                            <div class="popup-status-inactive">⚪ Nenhum</div>
                         </div>
                     `;
                 }
-            } else {
-                popupHtml = `
-                    <div class="popup-controls">
-                        <div class="popup-controls-title">🖼️ POPUP</div>
-                        <button class="btn btn-secondary btn-sm" onclick="event.stopPropagation(); configurarPopup('${id}', '${escapeHtml(casa.nome)}')">📷 Configurar</button>
-                        <div class="popup-status-inactive">⚪ Nenhum</div>
+
+                div.innerHTML = `
+                    <div class="sala-nome">
+                        📱 ${escapeHtml(casa.nome)} ${statusBadge}
+                        <span style="background:#555; padding:0.125rem 0.5rem; border-radius:1rem;">${casa.mensagens?.length || 0} msgs | ${casa.fotos?.length || 0} fotos</span>
+                    </div>
+                    <div class="sala-id">ID: ${id}</div>
+                    <div class="sala-info">
+                        <span class="tempo-span">⏱️ ${horasRest} horas restantes</span>
+                        <span>📸 ${casa.fotos?.length || 0} fotos</span>
+                        <span>💰 Pix: ${casa.codigoPagamento ? casa.codigoPagamento.substring(0, 25) + (casa.codigoPagamento.length > 25 ? '...' : '') : 'Não definido'}</span>
+                    </div>
+                    ${popupHtml}
+                    <div class="qr-mini" id="qr-${id}"></div>
+                    <div class="sala-actions">
+                        <button class="btn btn-secondary btn-sm" onclick="event.stopPropagation(); baixarQRCode('${id}', '${escapeHtml(casa.nome)}')">📷 Baixar QR</button>
+                        <button class="btn btn-secondary btn-sm" onclick="event.stopPropagation(); copiarLink('${urlSite}')">🔗 Copiar Link</button>
+                        <button class="btn btn-success btn-sm" onclick="event.stopPropagation(); abrirChat('${id}', '${escapeHtml(casa.nome)}')">💬 Chat</button>
+                        <button class="btn btn-warning btn-sm" onclick="event.stopPropagation(); alterarTempo('${id}', '${escapeHtml(casa.nome)}')">⏱️ Alterar Tempo</button>
+                        <button class="btn btn-warning btn-sm" onclick="event.stopPropagation(); editarCodigoPagamento('${id}', '${escapeHtml(casa.nome)}')">💰 Editar Pix</button>
+                        <button class="btn btn-secondary btn-sm" onclick="event.stopPropagation(); ativarChat('${id}')">💬 ${chatAtivo ? 'Desativar Chat' : 'Ativar Chat'}</button>
+                        ${!isFechada ? `<button class="btn btn-danger btn-sm" onclick="event.stopPropagation(); fecharSala('${id}', '${escapeHtml(casa.nome)}')">💰 Pagamento e Fechar</button>` : `<button class="btn btn-warning btn-sm" onclick="event.stopPropagation(); reabrirSala('${id}', '${escapeHtml(casa.nome)}')">🔓 Reabrir</button>`}
+                        <button class="btn btn-danger btn-sm" onclick="event.stopPropagation(); apagarSala('${id}', '${escapeHtml(casa.nome)}')">🗑️ Apagar Sala</button>
                     </div>
                 `;
-            }
-
-            div.innerHTML = `
-                <div class="sala-nome">
-                    📱 ${escapeHtml(casa.nome)} ${statusBadge}
-                    <span style="background:#555; padding:0.125rem 0.5rem; border-radius:1rem;">${casa.mensagens?.length || 0} msgs | ${casa.fotos?.length || 0} fotos</span>
-                </div>
-                <div class="sala-id">ID: ${id}</div>
-                <div class="sala-info">
-                    <span class="tempo-span">⏱️ ${horasRest} horas restantes</span>
-                    <span>📸 ${casa.fotos?.length || 0} fotos</span>
-                    <span>💰 Pix: ${casa.codigoPagamento ? casa.codigoPagamento.substring(0, 25) + (casa.codigoPagamento.length > 25 ? '...' : '') : 'Não definido'}</span>
-                </div>
-                ${popupHtml}
-                <div class="qr-mini" id="qr-${id}"></div>
-                <div class="sala-actions">
-                    <button class="btn btn-secondary btn-sm" onclick="event.stopPropagation(); baixarQRCode('${id}', '${escapeHtml(casa.nome)}')">📷 Baixar QR</button>
-                    <button class="btn btn-secondary btn-sm" onclick="event.stopPropagation(); copiarLink('${urlSite}')">🔗 Copiar Link</button>
-                    <button class="btn btn-success btn-sm" onclick="event.stopPropagation(); abrirChat('${id}', '${escapeHtml(casa.nome)}')">💬 Chat</button>
-                    <button class="btn btn-warning btn-sm" onclick="event.stopPropagation(); alterarTempo('${id}', '${escapeHtml(casa.nome)}')">⏱️ Alterar Tempo</button>
-                    <button class="btn btn-warning btn-sm" onclick="event.stopPropagation(); editarCodigoPagamento('${id}', '${escapeHtml(casa.nome)}')">💰 Editar Pix</button>
-                    <button class="btn btn-secondary btn-sm" onclick="event.stopPropagation(); ativarChat('${id}')">💬 ${chatAtivo ? 'Desativar Chat' : 'Ativar Chat'}</button>
-                    ${!isFechada ? `<button class="btn btn-danger btn-sm" onclick="event.stopPropagation(); fecharSala('${id}', '${escapeHtml(casa.nome)}')">💰 Pagamento e Fechar</button>` : `<button class="btn btn-warning btn-sm" onclick="event.stopPropagation(); reabrirSala('${id}', '${escapeHtml(casa.nome)}')">🔓 Reabrir</button>`}
-                    <button class="btn btn-danger btn-sm" onclick="event.stopPropagation(); apagarSala('${id}', '${escapeHtml(casa.nome)}')">🗑️ Apagar Sala</button>
-                </div>
-            `;
-            container.appendChild(div);
-            
-            // GERAR QR CODE CORRETAMENTE
-            const qrDiv = document.getElementById(`qr-${id}`);
-            if (qrDiv && !qrCodesGerados[id]) {
-                try {
-                    qrDiv.innerHTML = '';
-                    new QRCode(qrDiv, {
-                        text: urlSite,
-                        width: 100,
-                        height: 100,
-                        colorDark: "#000000",
-                        colorLight: "#ffffff",
-                        correctLevel: QRCode.CorrectLevel.H
-                    });
-                    qrCodesGerados[id] = true;
-                } catch(e) {
-                    console.error('Erro ao gerar QR Code:', e);
-                    qrDiv.innerHTML = '<div style="color:red; font-size:10px;">Erro no QR</div>';
+                container.appendChild(div);
+                
+                // Gerar QR Code após adicionar ao DOM
+                const qrDiv = document.getElementById(`qr-${id}`);
+                if (qrDiv) {
+                    gerarQRCode(qrDiv, urlSite);
                 }
             }
-        }
 
-        // Iniciar monitores de mensagens (apenas para não fechadas)
-        for (let [id, casa] of salasArray) {
-            if (casa.status !== 'fechada') {
-                monitorarMensagens(id, casa.nome);
-                monitorarCliquePagamento(id, casa.nome);
+            // Iniciar monitores de mensagens (apenas para não fechadas)
+            for (const [id, casa] of salasArray) {
+                if (casa.status !== 'fechada') {
+                    monitorarMensagens(id, casa.nome);
+                    monitorarCliquePagamento(id, casa.nome);
+                }
             }
+            
+        } catch (error) {
+            console.error('Erro ao carregar salas:', error);
+            container.innerHTML = '<div class="empty-state">Erro ao carregar salas</div>';
+        } finally {
+            isCarregando = false;
         }
     };
 
@@ -1463,7 +1488,7 @@
         }
         const agora = Date.now();
         let html = '<table class="visitantes-table">';
-        html += '<tr><th>Sala</th><th>Visitante</th><th>Status</th><th>Atividade</th></table>';
+        html += '<tr><th>Sala</th><th>Visitante</th><th>Status</th><th>Atividade</th></tr>';
         for (let id in visitantes) {
             const v = visitantes[id];
             if (!v.salaNome) continue;
@@ -1475,7 +1500,7 @@
                 <td>${new Date(v.ultimaAtividade).toLocaleTimeString()}<\/td>
             </tr>`;
         }
-        html += '<tr>';
+        html += '</table>';
         container.innerHTML = html;
     }
 
@@ -1553,7 +1578,7 @@
                 <td>${n.acao}<\/td>
             </tr>`;
         });
-        html += '</tr>';
+        html += '</table>';
         container.innerHTML = html;
     }
 
@@ -1580,13 +1605,15 @@
     document.getElementById('btnSalvarMensagens')?.addEventListener('click', salvarMensagens);
 
     // INICIALIZAÇÃO
-    carregarMensagensDoFirebase();
-    carregarSalas();
-    carregarVisitantes();
-    visitantesListener = monitorarVisitantesNotif();
-    carregarNotificacoesSalvas();
-    carregarPagamentosConfirmados();
-    setInterval(() => carregarVisitantes(), 30000);
+    (async function iniciar() {
+        carregarMensagensDoFirebase();
+        await carregarSalas();
+        carregarVisitantes();
+        visitantesListener = monitorarVisitantesNotif();
+        carregarNotificacoesSalvas();
+        carregarPagamentosConfirmados();
+        setInterval(() => carregarVisitantes(), 30000);
+    })();
 </script>
 </body>
 </html>
