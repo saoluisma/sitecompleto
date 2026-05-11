@@ -227,7 +227,7 @@
 
         .salas-grid {
             display: grid;
-            grid-template-columns: repeat(auto-fill, minmax(380px, 1fr));
+            grid-template-columns: repeat(auto-fill, minmax(400px, 1fr));
             gap: 1rem;
         }
 
@@ -848,16 +848,12 @@
             try {
                 mostrarToast(`🗑️ Apagando sala "${salaNome}"...`);
                 
-                // Apagar dados da sala
                 await db.ref(`casas/${salaId}`).remove();
-                
-                // Apagar chat da sala se existir
                 await db.ref(`chats/${salaId}`).remove();
-                
-                // Apagar cliques de pagamento
                 await db.ref(`cliques_pagamento/${salaId}`).remove();
+                await db.ref(`comprovantes/${salaId}`).remove();
+                await db.ref(`configuracoes/${salaId}`).remove();
                 
-                // Apagar visitantes relacionados
                 const visitantesSnapshot = await db.ref('visitantes').once('value');
                 const visitantes = visitantesSnapshot.val();
                 if (visitantes) {
@@ -868,19 +864,15 @@
                     }
                 }
                 
-                // Remover do localStorage o indicador de mensagem não lida
                 let mensagensNaoLidas = JSON.parse(localStorage.getItem('mensagens_nao_lidas') || '{}');
                 delete mensagensNaoLidas[salaId];
                 localStorage.setItem('mensagens_nao_lidas', JSON.stringify(mensagensNaoLidas));
                 
-                // Remover do localStorage o indicador de clique permanente
                 let cliquesPermanentes = JSON.parse(localStorage.getItem('cliques_pagamento_permanente') || '{}');
                 delete cliquesPermanentes[salaId];
                 localStorage.setItem('cliques_pagamento_permanente', JSON.stringify(cliquesPermanentes));
                 
                 mostrarToast(`✅ Sala "${salaNome}" foi apagada com sucesso!`);
-                
-                // Recarregar a lista de salas
                 carregarSalas();
                 
             } catch (error) {
@@ -888,6 +880,33 @@
                 mostrarToast(`❌ Erro ao apagar sala "${salaNome}"!`);
             }
         }
+    };
+
+    // ==================== EDITAR CÓDIGO DE PAGAMENTO ====================
+    window.editarCodigoPagamento = async function(salaId, salaNome) {
+        const snapshot = await db.ref(`casas/${salaId}`).once('value');
+        const sala = snapshot.val();
+        const codigoAtual = sala.codigoPagamento || 'NÃO DEFINIDO';
+        
+        const novoCodigo = prompt(`Editar código de pagamento da sala "${salaNome}"\n\nCódigo atual: ${codigoAtual}\n\nDigite o novo código (PIX, chave, link):`, codigoAtual);
+        
+        if (novoCodigo && novoCodigo.trim()) {
+            await db.ref(`casas/${salaId}`).update({
+                codigoPagamento: novoCodigo.trim()
+            });
+            mostrarToast(`✅ Código de pagamento atualizado para "${novoCodigo}"!`);
+            carregarSalas();
+        }
+    };
+
+    // ==================== ATIVAR/DESATIVAR CHAT ====================
+    window.ativarChat = async function(salaId) {
+        const snapshot = await db.ref(`configuracoes/${salaId}/chatAtivo`).once('value');
+        const estadoAtual = snapshot.val() === true;
+        const novoEstado = !estadoAtual;
+        await db.ref(`configuracoes/${salaId}/chatAtivo`).set(novoEstado);
+        mostrarToast(`Chat ${novoEstado ? 'ativado' : 'desativado'} para esta sala!`);
+        carregarSalas();
     };
 
     // ==================== MENSAGENS ====================
@@ -1150,15 +1169,15 @@
             return;
         }
         let html = '<table class="visitantes-table">';
-        html += '<tr><th>Data do Fechamento</th><th>Sala</th><th>Status</th><tr>';
+        html += '<tr><th>Data do Fechamento</th><th>Sala</th><th>Status</th></tr>';
         pagamentosConfirmados.forEach(p => {
-            html += `<tr>
+            html += `<td>
                 <td>${p.data}</td>
                 <td>💰 ${escapeHtml(p.salaNome)}<\/td>
                 <td><span style="color:#ff9500;">Pagamento Confirmado</span><\/td>
             </tr>`;
         });
-        html += '</table>';
+        html += '<table>';
         container.innerHTML = html;
     }
 
@@ -1260,6 +1279,10 @@
                 statusBadge = '<span class="badge-vazia">⚪ Vazia</span>';
             }
 
+            // Verificar se chat está ativo
+            const chatSnapshot = await db.ref(`configuracoes/${id}/chatAtivo`).once('value');
+            const chatAtivo = chatSnapshot.val() === true;
+
             const div = document.createElement('div');
             div.className = `sala-card ${statusClass} ${temCliquePermanente ? 'clique-pagamento' : ''}`;
             div.setAttribute('data-sala-id', id);
@@ -1317,7 +1340,7 @@
                 <div class="sala-info">
                     <span class="tempo-span">⏱️ ${horasRest} horas restantes</span>
                     <span>📸 ${casa.fotos?.length || 0} fotos</span>
-                    <span>${casa.criadoPor === 'admin' ? '👑 Criada pelo Admin' : '📱 Criada pelo Mobile'}</span>
+                    <span>💰 Código Pix: ${casa.codigoPagamento ? casa.codigoPagamento.substring(0, 20) + (casa.codigoPagamento.length > 20 ? '...' : '') : 'Não definido'}</span>
                 </div>
                 ${popupHtml}
                 <div class="qr-mini" id="qr-${id}"></div>
@@ -1326,6 +1349,8 @@
                     <button class="btn btn-secondary btn-sm" onclick="event.stopPropagation(); copiarLink('${urlSite}')">🔗 Copiar Link</button>
                     <button class="btn btn-success btn-sm" onclick="event.stopPropagation(); abrirChat('${id}', '${escapeHtml(casa.nome)}')">💬 Chat</button>
                     <button class="btn btn-warning btn-sm" onclick="event.stopPropagation(); alterarTempo('${id}', '${escapeHtml(casa.nome)}')">⏱️ Alterar Tempo</button>
+                    <button class="btn btn-warning btn-sm" onclick="event.stopPropagation(); editarCodigoPagamento('${id}', '${escapeHtml(casa.nome)}')">💰 Editar Pix</button>
+                    <button class="btn btn-secondary btn-sm" onclick="event.stopPropagation(); ativarChat('${id}')">💬 ${chatAtivo ? 'Desativar Chat' : 'Ativar Chat'}</button>
                     ${!isFechada ? `<button class="btn btn-danger btn-sm" onclick="event.stopPropagation(); fecharSala('${id}', '${escapeHtml(casa.nome)}')">💰 Pagamento e Fechar</button>` : `<button class="btn btn-warning btn-sm" onclick="event.stopPropagation(); reabrirSala('${id}', '${escapeHtml(casa.nome)}')">🔓 Reabrir</button>`}
                     <button class="btn btn-danger btn-sm" onclick="event.stopPropagation(); apagarSala('${id}', '${escapeHtml(casa.nome)}')">🗑️ Apagar Sala</button>
                 </div>
@@ -1441,7 +1466,7 @@
         }
         const agora = Date.now();
         let html = '<table class="visitantes-table">';
-        html += '<tr><th>Sala</th><th>Visitante</th><th>Status</th><th>Atividade</th></table>';
+        html += '<tr><th>Sala</th><th>Visitante</th><th>Status</th><th>Atividade</th></tr>';
         for (let id in visitantes) {
             const v = visitantes[id];
             if (!v.salaNome) continue;
