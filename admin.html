@@ -326,6 +326,8 @@
             border-radius: 0.5rem;
             display: inline-block;
             margin: 0.5rem 0;
+            min-width: 100px;
+            min-height: 100px;
         }
 
         .sala-actions {
@@ -678,10 +680,7 @@
                 <p>🟢 Verde = Configurada | 🟡 Amarelo = Cliente clicou em PAGAR | 🔴 Vermelho = Fechada | ⚪ Cinza = Vazia (aguardando configuração)</p>
             </div>
             <div class="card-body">
-                <div style="display: flex; justify-content: space-between; margin-bottom: 1rem; gap: 0.5rem; flex-wrap: wrap;">
-                    <button class="btn btn-secondary btn-sm" id="btnAtualizarSalas">🔄 Atualizar Salas</button>
-                    <span style="font-size: 0.7rem; color: #666; align-self: center;">Cache ativo - dados locais</span>
-                </div>
+                <button class="btn btn-secondary btn-sm" onclick="carregarSalas()" style="margin-bottom: 1rem;">🔄 Atualizar Salas</button>
                 <div id="listaCasas" class="salas-grid">
                     <div class="empty-state">Carregando...</div>
                 </div>
@@ -774,12 +773,7 @@
         "⭐ Volte sempre!"
     ];
 
-    // CACHE DAS SALAS
-    let salasCache = {};
     let qrCodesGerados = {};
-
-    // Debounce para evitar duplicação
-    const ultimosEventos = new Map();
 
     function debounceEvent(tipo, id, callback) {
         const chave = `${tipo}_${id}`;
@@ -793,14 +787,15 @@
         return true;
     }
 
-    // TABS
+    const ultimosEventos = new Map();
+
     document.querySelectorAll('.tab-btn').forEach(btn => {
         btn.addEventListener('click', () => {
             document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
             document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
             btn.classList.add('active');
             document.getElementById(`tab-${btn.dataset.tab}`).classList.add('active');
-            if (btn.dataset.tab === 'salas') renderizarSalasDoCache();
+            if (btn.dataset.tab === 'salas') carregarSalas();
             if (btn.dataset.tab === 'visitantes') carregarVisitantes();
             if (btn.dataset.tab === 'notificacoes') carregarHistoricoNotif();
             if (btn.dataset.tab === 'pagamentos') carregarPagamentosConfirmados();
@@ -833,13 +828,10 @@
                 configurada: false
             });
             
-            // Atualizar cache
-            await carregarSalasParaCache();
-            renderizarSalasDoCache();
-            
             mostrarToast(`✅ Sala "${nome}" criada com sucesso! QR Code gerado.`);
             document.getElementById('nomeSalaVazia').value = '';
             document.getElementById('tempoHorasVazia').value = '48';
+            carregarSalas();
             
             document.querySelector('.tab-btn[data-tab="salas"]').click();
             
@@ -848,234 +840,6 @@
             mostrarToast("❌ Erro ao criar sala!");
         }
     }
-
-    // ==================== CARREGAR SALAS PARA CACHE ====================
-    async function carregarSalasParaCache() {
-        try {
-            const snapshot = await db.ref('casas').once('value');
-            const casas = snapshot.val();
-            
-            if (casas) {
-                salasCache = { ...casas };
-                // Salvar cache no localStorage para persistência
-                localStorage.setItem('salas_cache', JSON.stringify(salasCache));
-                localStorage.setItem('salas_cache_timestamp', Date.now());
-            }
-            return salasCache;
-        } catch (error) {
-            console.error('Erro ao carregar cache:', error);
-            // Tentar carregar do localStorage
-            const cached = localStorage.getItem('salas_cache');
-            if (cached) {
-                salasCache = JSON.parse(cached);
-            }
-            return salasCache;
-        }
-    }
-
-    // ==================== RENDERIZAR SALAS DO CACHE ====================
-    function renderizarSalasDoCache() {
-        const container = document.getElementById('listaCasas');
-        
-        if (!salasCache || Object.keys(salasCache).length === 0) {
-            container.innerHTML = '<div class="empty-state">Nenhuma sala criada ainda</div>';
-            return;
-        }
-
-        const salasArray = Object.entries(salasCache);
-        if (salasArray.length === 0) {
-            container.innerHTML = '<div class="empty-state">Nenhuma sala criada ainda</div>';
-            return;
-        }
-
-        salasArray.sort((a, b) => (b[1].dataCriacao || b[1].timestamp) - (a[1].dataCriacao || a[1].timestamp));
-        container.innerHTML = '';
-
-        const cliquesPermanentes = JSON.parse(localStorage.getItem('cliques_pagamento_permanente') || '{}');
-
-        for (let [id, casa] of salasArray) {
-            const urlSite = `${window.location.origin}${window.location.pathname.replace('admin.html', 'redirect.html')}?id=${id}`;
-            const expiraEm = casa.expiraEm || (Date.now() + 48 * 3600000);
-            const horasRest = Math.max(0, Math.floor((expiraEm - Date.now()) / 3600000));
-            const isFechada = casa.status === 'fechada';
-            const temCliquePermanente = cliquesPermanentes[id] === true;
-            const isConfigurada = (casa.mensagens && casa.mensagens.length > 0) || (casa.fotos && casa.fotos.length > 0);
-            
-            let statusClass = '';
-            let statusBadge = '';
-            if (isFechada) {
-                statusClass = 'fechada';
-                statusBadge = '<span class="badge-fechada">🔒 Fechada</span>';
-            } else if (isConfigurada) {
-                statusClass = 'configurada';
-                statusBadge = '<span class="badge-configurada">✅ Configurada</span>';
-            } else {
-                statusClass = 'vazia';
-                statusBadge = '<span class="badge-vazia">⚪ Vazia</span>';
-            }
-
-            const div = document.createElement('div');
-            div.className = `sala-card ${statusClass} ${temCliquePermanente ? 'clique-pagamento' : ''}`;
-            div.setAttribute('data-sala-id', id);
-
-            // Eventos de long press
-            div.addEventListener('mousedown', () => iniciarLongPress(id, casa.nome));
-            div.addEventListener('mouseup', cancelarLongPress);
-            div.addEventListener('mouseleave', cancelarLongPress);
-            div.addEventListener('touchstart', (e) => { e.preventDefault(); iniciarLongPress(id, casa.nome); });
-            div.addEventListener('touchend', cancelarLongPress);
-            div.addEventListener('touchcancel', cancelarLongPress);
-
-            let popupHtml = '';
-            if (casa.popup) {
-                if (casa.popup.ativo) {
-                    popupHtml = `
-                        <div class="popup-controls">
-                            <div class="popup-controls-title">🖼️ POPUP</div>
-                            <div style="display: flex; gap: 0.5rem; flex-wrap: wrap;">
-                                <button class="btn btn-danger btn-sm" onclick="event.stopPropagation(); desativarPopup('${id}')">❌ Desativar</button>
-                                <button class="btn btn-warning btn-sm" onclick="event.stopPropagation(); reativarPopup('${id}', '${escapeHtml(casa.nome)}')">🔄 Reativar</button>
-                                <button class="btn btn-secondary btn-sm" onclick="event.stopPropagation(); removerPopup('${id}')">🗑️ Remover</button>
-                            </div>
-                            <div class="popup-status-active">✅ Ativo (v${casa.popup.versao || 1}) - ${casa.popup.duracao / 1000}s</div>
-                        </div>
-                    `;
-                } else {
-                    popupHtml = `
-                        <div class="popup-controls">
-                            <div class="popup-controls-title">🖼️ POPUP</div>
-                            <div style="display: flex; gap: 0.5rem; flex-wrap: wrap;">
-                                <button class="btn btn-success btn-sm" onclick="event.stopPropagation(); reativarPopup('${id}', '${escapeHtml(casa.nome)}')">🔄 Reativar</button>
-                                <button class="btn btn-secondary btn-sm" onclick="event.stopPropagation(); configurarPopup('${id}', '${escapeHtml(casa.nome)}')">📷 Editar</button>
-                                <button class="btn btn-secondary btn-sm" onclick="event.stopPropagation(); removerPopup('${id}')">🗑️ Remover</button>
-                            </div>
-                            <div class="popup-status-inactive">⚪ Desativado</div>
-                        </div>
-                    `;
-                }
-            } else {
-                popupHtml = `
-                    <div class="popup-controls">
-                        <div class="popup-controls-title">🖼️ POPUP</div>
-                        <button class="btn btn-secondary btn-sm" onclick="event.stopPropagation(); configurarPopup('${id}', '${escapeHtml(casa.nome)}')">📷 Configurar</button>
-                        <div class="popup-status-inactive">⚪ Nenhum</div>
-                    </div>
-                `;
-            }
-
-            div.innerHTML = `
-                <div class="sala-nome">
-                    📱 ${escapeHtml(casa.nome)} ${statusBadge}
-                    <span style="background:#555; padding:0.125rem 0.5rem; border-radius:1rem;">${casa.mensagens?.length || 0} msgs | ${casa.fotos?.length || 0} fotos</span>
-                </div>
-                <div class="sala-id">ID: ${id}</div>
-                <div class="sala-info">
-                    <span class="tempo-span">⏱️ ${horasRest} horas restantes</span>
-                    <span>📸 ${casa.fotos?.length || 0} fotos</span>
-                    <span>💰 Pix: ${casa.codigoPagamento ? casa.codigoPagamento.substring(0, 25) + (casa.codigoPagamento.length > 25 ? '...' : '') : 'Não definido'}</span>
-                </div>
-                ${popupHtml}
-                <div class="qr-mini" id="qr-${id}"></div>
-                <div class="sala-actions">
-                    <button class="btn btn-secondary btn-sm" onclick="event.stopPropagation(); baixarQRCode('${id}', '${escapeHtml(casa.nome)}')">📷 Baixar QR</button>
-                    <button class="btn btn-secondary btn-sm" onclick="event.stopPropagation(); copiarLink('${urlSite}')">🔗 Copiar Link</button>
-                    <button class="btn btn-success btn-sm" onclick="event.stopPropagation(); abrirChat('${id}', '${escapeHtml(casa.nome)}')">💬 Chat</button>
-                    <button class="btn btn-warning btn-sm" onclick="event.stopPropagation(); alterarTempo('${id}', '${escapeHtml(casa.nome)}')">⏱️ Alterar Tempo</button>
-                    <button class="btn btn-warning btn-sm" onclick="event.stopPropagation(); editarCodigoPagamento('${id}', '${escapeHtml(casa.nome)}')">💰 Editar Pix</button>
-                    <button class="btn btn-secondary btn-sm" onclick="event.stopPropagation(); ativarChat('${id}')">💬 Ativar Chat</button>
-                    ${!isFechada ? `<button class="btn btn-danger btn-sm" onclick="event.stopPropagation(); fecharSala('${id}', '${escapeHtml(casa.nome)}')">💰 Pagamento e Fechar</button>` : `<button class="btn btn-warning btn-sm" onclick="event.stopPropagation(); reabrirSala('${id}', '${escapeHtml(casa.nome)}')">🔓 Reabrir</button>`}
-                    <button class="btn btn-danger btn-sm" onclick="event.stopPropagation(); apagarSala('${id}', '${escapeHtml(casa.nome)}')">🗑️ Apagar Sala</button>
-                </div>
-            `;
-            container.appendChild(div);
-            
-            // Gerar QR Code apenas se não existir ou se for novo
-            if (!qrCodesGerados[id]) {
-                new QRCode(document.getElementById(`qr-${id}`), { text: urlSite, width: 100, height: 100 });
-                qrCodesGerados[id] = true;
-            }
-        }
-    }
-
-    // ==================== ATUALIZAR SALAS (FORÇAR RECARREGAMENTO DO BANCO) ====================
-    window.carregarSalas = async function() {
-        const btnAtualizar = document.getElementById('btnAtualizarSalas');
-        const textoOriginal = btnAtualizar?.innerText;
-        if (btnAtualizar) {
-            btnAtualizar.innerText = '🔄 Atualizando...';
-            btnAtualizar.disabled = true;
-        }
-        
-        mostrarToast("📡 Atualizando dados do servidor...");
-        
-        await carregarSalasParaCache();
-        renderizarSalasDoCache();
-        
-        if (btnAtualizar) {
-            btnAtualizar.innerText = textoOriginal;
-            btnAtualizar.disabled = false;
-        }
-        
-        mostrarToast("✅ Salas atualizadas!");
-    };
-
-    // ==================== APAGAR SALA COMPLETAMENTE ====================
-    window.apagarSala = async function(salaId, salaNome) {
-        if (confirm(`⚠️ ATENÇÃO! ⚠️\n\nVocê tem certeza que deseja APAGAR PERMANENTEMENTE a sala "${salaNome}"?\n\nTodos os dados serão removidos.\n\nEsta ação NÃO pode ser desfeita!`)) {
-            try {
-                mostrarToast(`🗑️ Apagando sala "${salaNome}"...`);
-                
-                await db.ref(`casas/${salaId}`).remove();
-                await db.ref(`chats/${salaId}`).remove();
-                await db.ref(`cliques_pagamento/${salaId}`).remove();
-                await db.ref(`comprovantes/${salaId}`).remove();
-                await db.ref(`configuracoes/${salaId}`).remove();
-                
-                // Remover do cache
-                delete salasCache[salaId];
-                delete qrCodesGerados[salaId];
-                localStorage.setItem('salas_cache', JSON.stringify(salasCache));
-                
-                mostrarToast(`✅ Sala "${salaNome}" foi apagada com sucesso!`);
-                renderizarSalasDoCache();
-                
-            } catch (error) {
-                console.error('Erro ao apagar sala:', error);
-                mostrarToast(`❌ Erro ao apagar sala "${salaNome}"!`);
-            }
-        }
-    };
-
-    // ==================== EDITAR CÓDIGO DE PAGAMENTO ====================
-    window.editarCodigoPagamento = async function(salaId, salaNome) {
-        const snapshot = await db.ref(`casas/${salaId}`).once('value');
-        const sala = snapshot.val();
-        const codigoAtual = sala.codigoPagamento || 'NÃO DEFINIDO';
-        
-        const novoCodigo = prompt(`Editar código de pagamento da sala "${salaNome}"\n\nCódigo atual: ${codigoAtual}\n\nDigite o novo código (PIX, chave, link):`, codigoAtual);
-        
-        if (novoCodigo && novoCodigo.trim()) {
-            await db.ref(`casas/${salaId}`).update({
-                codigoPagamento: novoCodigo.trim()
-            });
-            // Atualizar cache
-            if (salasCache[salaId]) {
-                salasCache[salaId].codigoPagamento = novoCodigo.trim();
-                localStorage.setItem('salas_cache', JSON.stringify(salasCache));
-            }
-            mostrarToast(`✅ Código de pagamento atualizado para "${novoCodigo}"!`);
-            renderizarSalasDoCache();
-        }
-    };
-
-    // ==================== ATIVAR/DESATIVAR CHAT ====================
-    window.ativarChat = async function(salaId) {
-        const snapshot = await db.ref(`configuracoes/${salaId}/chatAtivo`).once('value');
-        const estadoAtual = snapshot.val() === true;
-        const novoEstado = !estadoAtual;
-        await db.ref(`configuracoes/${salaId}/chatAtivo`).set(novoEstado);
-        mostrarToast(`Chat ${novoEstado ? 'ativado' : 'desativado'} para esta sala!`);
-    };
 
     // ==================== MENSAGENS ====================
     
@@ -1196,6 +960,32 @@
     function iniciarLongPress(id, nome) { pressTimer = setTimeout(() => baixarTudoDaSala(id, nome), 800); }
     function cancelarLongPress() { if (pressTimer) { clearTimeout(pressTimer); pressTimer = null; } }
 
+    // ==================== FUNÇÕES DAS SALAS ====================
+    
+    window.editarCodigoPagamento = async function(salaId, salaNome) {
+        const snapshot = await db.ref(`casas/${salaId}`).once('value');
+        const sala = snapshot.val();
+        const codigoAtual = sala.codigoPagamento || 'NÃO DEFINIDO';
+        
+        const novoCodigo = prompt(`Editar código de pagamento da sala "${salaNome}"\n\nCódigo atual: ${codigoAtual}\n\nDigite o novo código (PIX, chave, link):`, codigoAtual);
+        
+        if (novoCodigo && novoCodigo.trim()) {
+            await db.ref(`casas/${salaId}`).update({
+                codigoPagamento: novoCodigo.trim()
+            });
+            mostrarToast(`✅ Código de pagamento atualizado para "${novoCodigo}"!`);
+            carregarSalas();
+        }
+    };
+
+    window.ativarChat = async function(salaId) {
+        const snapshot = await db.ref(`configuracoes/${salaId}/chatAtivo`).once('value');
+        const estadoAtual = snapshot.val() === true;
+        const novoEstado = !estadoAtual;
+        await db.ref(`configuracoes/${salaId}/chatAtivo`).set(novoEstado);
+        mostrarToast(`Chat ${novoEstado ? 'ativado' : 'desativado'} para esta sala!`);
+    };
+
     window.alterarTempo = async function(salaId, salaNome) {
         const horas = prompt(`Alterar tempo da sala "${salaNome}"\n\nDigite a quantidade de HORAS que a sala deve ficar ativa:\n(1 a 168 horas)`, "48");
         if (horas === null) return;
@@ -1207,14 +997,7 @@
         const novoTimestamp = Date.now() + (horasNum * 60 * 60 * 1000);
         await db.ref(`casas/${salaId}`).update({ tempoHoras: horasNum, expiraEm: novoTimestamp });
         mostrarToast(`✅ Tempo da sala "${salaNome}" alterado para ${horasNum} horas!`);
-        
-        // Atualizar cache
-        if (salasCache[salaId]) {
-            salasCache[salaId].tempoHoras = horasNum;
-            salasCache[salaId].expiraEm = novoTimestamp;
-            localStorage.setItem('salas_cache', JSON.stringify(salasCache));
-        }
-        renderizarSalasDoCache();
+        carregarSalas();
     };
 
     window.configurarPopup = async function(salaId, salaNome) {
@@ -1241,8 +1024,7 @@
                             versao: novaVersao
                         });
                         mostrarToast(`✅ Popup configurado para a sala "${salaNome}"!`);
-                        await carregarSalasParaCache();
-                        renderizarSalasDoCache();
+                        carregarSalas();
                     };
                     reader.readAsDataURL(file);
                 }
@@ -1261,8 +1043,7 @@
                     versao: novaVersao
                 });
                 mostrarToast(`✅ Popup configurado para a sala "${salaNome}"!`);
-                await carregarSalasParaCache();
-                renderizarSalasDoCache();
+                carregarSalas();
             }
         }
     };
@@ -1270,16 +1051,14 @@
     window.desativarPopup = async function(salaId) {
         await db.ref(`casas/${salaId}/popup`).update({ ativo: false });
         mostrarToast(`⛔ Popup desativado!`);
-        await carregarSalasParaCache();
-        renderizarSalasDoCache();
+        carregarSalas();
     };
 
     window.removerPopup = async function(salaId) {
         if (confirm("Remover completamente a configuração do popup?")) {
             await db.ref(`casas/${salaId}/popup`).remove();
             mostrarToast(`🗑️ Popup removido!`);
-            await carregarSalasParaCache();
-            renderizarSalasDoCache();
+            carregarSalas();
         }
     };
 
@@ -1293,8 +1072,7 @@
                 versao: novaVersao
             });
             mostrarToast(`✅ Popup reativado para a sala "${salaNome}"! Uma nova versão foi criada.`);
-            await carregarSalasParaCache();
-            renderizarSalasDoCache();
+            carregarSalas();
         } else {
             mostrarToast(`❌ Não há imagem configurada. Configure o popup primeiro.`);
         }
@@ -1317,8 +1095,7 @@
             if (pagamentosConfirmados.length > 50) pagamentosConfirmados.pop();
             localStorage.setItem('pagamentos_confirmados', JSON.stringify(pagamentosConfirmados));
             mostrarToast(`✅ Pagamento confirmado! Sala "${salaNome}" fechada!`);
-            await carregarSalasParaCache();
-            renderizarSalasDoCache();
+            carregarSalas();
             carregarPagamentosConfirmados();
         }
     };
@@ -1330,8 +1107,28 @@
                 pago: false
             });
             mostrarToast(`🟢 Sala "${salaNome}" reaberta!`);
-            await carregarSalasParaCache();
-            renderizarSalasDoCache();
+            carregarSalas();
+        }
+    };
+
+    window.apagarSala = async function(salaId, salaNome) {
+        if (confirm(`⚠️ ATENÇÃO! ⚠️\n\nVocê tem certeza que deseja APAGAR PERMANENTEMENTE a sala "${salaNome}"?\n\nTodos os dados serão removidos.\n\nEsta ação NÃO pode ser desfeita!`)) {
+            try {
+                mostrarToast(`🗑️ Apagando sala "${salaNome}"...`);
+                
+                await db.ref(`casas/${salaId}`).remove();
+                await db.ref(`chats/${salaId}`).remove();
+                await db.ref(`cliques_pagamento/${salaId}`).remove();
+                await db.ref(`comprovantes/${salaId}`).remove();
+                await db.ref(`configuracoes/${salaId}`).remove();
+                
+                mostrarToast(`✅ Sala "${salaNome}" foi apagada com sucesso!`);
+                carregarSalas();
+                
+            } catch (error) {
+                console.error('Erro ao apagar sala:', error);
+                mostrarToast(`❌ Erro ao apagar sala "${salaNome}"!`);
+            }
         }
     };
 
@@ -1346,10 +1143,10 @@
         let html = '<table class="visitantes-table">';
         html += '<tr><th>Data do Fechamento</th><th>Sala</th><th>Status</th></tr>';
         pagamentosConfirmados.forEach(p => {
-            html += `<td>
+            html += `<tr>
                 <td>${p.data}</td>
-                <td>💰 ${escapeHtml(p.salaNome)}</td>
-                <td><span style="color:#ff9500;">Pagamento Confirmado</span></td>
+                <td>💰 ${escapeHtml(p.salaNome)}<\/td>
+                <td><span style="color:#ff9500;">Pagamento Confirmado</span><\/td>
             </tr>`;
         });
         html += '</table>';
@@ -1370,20 +1167,173 @@
         }
     }
 
+    // ==================== CARREGAR SALAS ====================
+    
+    window.carregarSalas = async function() {
+        const container = document.getElementById('listaCasas');
+        container.innerHTML = '<div class="empty-state">Carregando salas...</div>';
+
+        const snapshot = await db.ref('casas').once('value');
+        const casas = snapshot.val();
+        
+        if (!casas) {
+            container.innerHTML = '<div class="empty-state">Nenhuma sala criada ainda</div>';
+            return;
+        }
+
+        const salasArray = Object.entries(casas);
+        if (salasArray.length === 0) {
+            container.innerHTML = '<div class="empty-state">Nenhuma sala criada ainda</div>';
+            return;
+        }
+
+        salasArray.sort((a, b) => (b[1].dataCriacao || b[1].timestamp) - (a[1].dataCriacao || a[1].timestamp));
+        container.innerHTML = '';
+
+        const cliquesPermanentes = JSON.parse(localStorage.getItem('cliques_pagamento_permanente') || '{}');
+
+        for (let [id, casa] of salasArray) {
+            const urlSite = `${window.location.origin}${window.location.pathname.replace('admin.html', 'redirect.html')}?id=${id}`;
+            const expiraEm = casa.expiraEm || (Date.now() + 48 * 3600000);
+            const horasRest = Math.max(0, Math.floor((expiraEm - Date.now()) / 3600000));
+            const isFechada = casa.status === 'fechada';
+            const temCliquePermanente = cliquesPermanentes[id] === true;
+            const isConfigurada = (casa.mensagens && casa.mensagens.length > 0) || (casa.fotos && casa.fotos.length > 0);
+            
+            let statusClass = '';
+            let statusBadge = '';
+            if (isFechada) {
+                statusClass = 'fechada';
+                statusBadge = '<span class="badge-fechada">🔒 Fechada</span>';
+            } else if (isConfigurada) {
+                statusClass = 'configurada';
+                statusBadge = '<span class="badge-configurada">✅ Configurada</span>';
+            } else {
+                statusClass = 'vazia';
+                statusBadge = '<span class="badge-vazia">⚪ Vazia</span>';
+            }
+
+            // Verificar se chat está ativo
+            const chatSnapshot = await db.ref(`configuracoes/${id}/chatAtivo`).once('value');
+            const chatAtivo = chatSnapshot.val() === true;
+
+            const div = document.createElement('div');
+            div.className = `sala-card ${statusClass} ${temCliquePermanente ? 'clique-pagamento' : ''}`;
+            div.setAttribute('data-sala-id', id);
+
+            div.addEventListener('mousedown', () => iniciarLongPress(id, casa.nome));
+            div.addEventListener('mouseup', cancelarLongPress);
+            div.addEventListener('mouseleave', cancelarLongPress);
+            div.addEventListener('touchstart', (e) => { e.preventDefault(); iniciarLongPress(id, casa.nome); });
+            div.addEventListener('touchend', cancelarLongPress);
+            div.addEventListener('touchcancel', cancelarLongPress);
+
+            let popupHtml = '';
+            if (casa.popup) {
+                if (casa.popup.ativo) {
+                    popupHtml = `
+                        <div class="popup-controls">
+                            <div class="popup-controls-title">🖼️ POPUP</div>
+                            <div style="display: flex; gap: 0.5rem; flex-wrap: wrap;">
+                                <button class="btn btn-danger btn-sm" onclick="event.stopPropagation(); desativarPopup('${id}')">❌ Desativar</button>
+                                <button class="btn btn-warning btn-sm" onclick="event.stopPropagation(); reativarPopup('${id}', '${escapeHtml(casa.nome)}')">🔄 Reativar</button>
+                                <button class="btn btn-secondary btn-sm" onclick="event.stopPropagation(); removerPopup('${id}')">🗑️ Remover</button>
+                            </div>
+                            <div class="popup-status-active">✅ Ativo (v${casa.popup.versao || 1}) - ${casa.popup.duracao / 1000}s</div>
+                        </div>
+                    `;
+                } else {
+                    popupHtml = `
+                        <div class="popup-controls">
+                            <div class="popup-controls-title">🖼️ POPUP</div>
+                            <div style="display: flex; gap: 0.5rem; flex-wrap: wrap;">
+                                <button class="btn btn-success btn-sm" onclick="event.stopPropagation(); reativarPopup('${id}', '${escapeHtml(casa.nome)}')">🔄 Reativar</button>
+                                <button class="btn btn-secondary btn-sm" onclick="event.stopPropagation(); configurarPopup('${id}', '${escapeHtml(casa.nome)}')">📷 Editar</button>
+                                <button class="btn btn-secondary btn-sm" onclick="event.stopPropagation(); removerPopup('${id}')">🗑️ Remover</button>
+                            </div>
+                            <div class="popup-status-inactive">⚪ Desativado</div>
+                        </div>
+                    `;
+                }
+            } else {
+                popupHtml = `
+                    <div class="popup-controls">
+                        <div class="popup-controls-title">🖼️ POPUP</div>
+                        <button class="btn btn-secondary btn-sm" onclick="event.stopPropagation(); configurarPopup('${id}', '${escapeHtml(casa.nome)}')">📷 Configurar</button>
+                        <div class="popup-status-inactive">⚪ Nenhum</div>
+                    </div>
+                `;
+            }
+
+            div.innerHTML = `
+                <div class="sala-nome">
+                    📱 ${escapeHtml(casa.nome)} ${statusBadge}
+                    <span style="background:#555; padding:0.125rem 0.5rem; border-radius:1rem;">${casa.mensagens?.length || 0} msgs | ${casa.fotos?.length || 0} fotos</span>
+                </div>
+                <div class="sala-id">ID: ${id}</div>
+                <div class="sala-info">
+                    <span class="tempo-span">⏱️ ${horasRest} horas restantes</span>
+                    <span>📸 ${casa.fotos?.length || 0} fotos</span>
+                    <span>💰 Pix: ${casa.codigoPagamento ? casa.codigoPagamento.substring(0, 25) + (casa.codigoPagamento.length > 25 ? '...' : '') : 'Não definido'}</span>
+                </div>
+                ${popupHtml}
+                <div class="qr-mini" id="qr-${id}"></div>
+                <div class="sala-actions">
+                    <button class="btn btn-secondary btn-sm" onclick="event.stopPropagation(); baixarQRCode('${id}', '${escapeHtml(casa.nome)}')">📷 Baixar QR</button>
+                    <button class="btn btn-secondary btn-sm" onclick="event.stopPropagation(); copiarLink('${urlSite}')">🔗 Copiar Link</button>
+                    <button class="btn btn-success btn-sm" onclick="event.stopPropagation(); abrirChat('${id}', '${escapeHtml(casa.nome)}')">💬 Chat</button>
+                    <button class="btn btn-warning btn-sm" onclick="event.stopPropagation(); alterarTempo('${id}', '${escapeHtml(casa.nome)}')">⏱️ Alterar Tempo</button>
+                    <button class="btn btn-warning btn-sm" onclick="event.stopPropagation(); editarCodigoPagamento('${id}', '${escapeHtml(casa.nome)}')">💰 Editar Pix</button>
+                    <button class="btn btn-secondary btn-sm" onclick="event.stopPropagation(); ativarChat('${id}')">💬 ${chatAtivo ? 'Desativar Chat' : 'Ativar Chat'}</button>
+                    ${!isFechada ? `<button class="btn btn-danger btn-sm" onclick="event.stopPropagation(); fecharSala('${id}', '${escapeHtml(casa.nome)}')">💰 Pagamento e Fechar</button>` : `<button class="btn btn-warning btn-sm" onclick="event.stopPropagation(); reabrirSala('${id}', '${escapeHtml(casa.nome)}')">🔓 Reabrir</button>`}
+                    <button class="btn btn-danger btn-sm" onclick="event.stopPropagation(); apagarSala('${id}', '${escapeHtml(casa.nome)}')">🗑️ Apagar Sala</button>
+                </div>
+            `;
+            container.appendChild(div);
+            
+            // GERAR QR CODE CORRETAMENTE
+            const qrDiv = document.getElementById(`qr-${id}`);
+            if (qrDiv && !qrCodesGerados[id]) {
+                try {
+                    qrDiv.innerHTML = '';
+                    new QRCode(qrDiv, {
+                        text: urlSite,
+                        width: 100,
+                        height: 100,
+                        colorDark: "#000000",
+                        colorLight: "#ffffff",
+                        correctLevel: QRCode.CorrectLevel.H
+                    });
+                    qrCodesGerados[id] = true;
+                } catch(e) {
+                    console.error('Erro ao gerar QR Code:', e);
+                    qrDiv.innerHTML = '<div style="color:red; font-size:10px;">Erro no QR</div>';
+                }
+            }
+        }
+
+        // Iniciar monitores de mensagens (apenas para não fechadas)
+        for (let [id, casa] of salasArray) {
+            if (casa.status !== 'fechada') {
+                monitorarMensagens(id, casa.nome);
+                monitorarCliquePagamento(id, casa.nome);
+            }
+        }
+    };
+
+    // ==================== MONITORES ====================
+    
     function monitorarMensagens(salaId, salaNome) {
         const chatRef = db.ref(`chats/${salaId}/mensagens`).orderByChild('timestamp');
         const listener = chatRef.on('child_added', (snapshot) => {
             const msg = snapshot.val();
             if (msg && msg.de === 'user' && !msg.lida) {
-                debounceEvent('mensagem', snapshot.key, () => {
-                    // Atualizar apenas o card específico sem recarregar tudo
-                    const card = document.querySelector(`.sala-card[data-sala-id="${salaId}"]`);
-                    if (card && currentChatId !== salaId) {
-                        card.classList.add('mensagem-nao-lida');
-                    }
-                    adicionarNotificacao(salaNome, `💬 Nova mensagem de ${salaNome}`);
-                    mostrarToast(`💬 Nova mensagem na sala "${salaNome}"!`);
-                });
+                const card = document.querySelector(`.sala-card[data-sala-id="${salaId}"]`);
+                if (card && currentChatId !== salaId) {
+                    card.classList.add('mensagem-nao-lida');
+                }
+                adicionarNotificacao(salaNome, `💬 Nova mensagem de ${salaNome}`);
+                mostrarToast(`💬 Nova mensagem na sala "${salaNome}"!`);
             }
         });
         return () => chatRef.off('child_added', listener);
@@ -1394,34 +1344,22 @@
         const listener = cliqueRef.on('child_added', (snapshot) => {
             const clique = snapshot.val();
             if (clique && clique.visitanteId && clique.dataFormatada) {
-                debounceEvent('clique', snapshot.key, () => {
-                    const card = document.querySelector(`.sala-card[data-sala-id="${salaId}"]`);
-                    if (card) {
-                        card.classList.add('clique-pagamento');
-                        let cliquesPermanentes = JSON.parse(localStorage.getItem('cliques_pagamento_permanente') || '{}');
-                        cliquesPermanentes[salaId] = true;
-                        localStorage.setItem('cliques_pagamento_permanente', JSON.stringify(cliquesPermanentes));
-                    }
-                    adicionarNotificacao(salaNome, `🟠 Cliente clicou em PAGAR: ${clique.dataFormatada}`);
-                    mostrarToast(`🔗 Cliente da sala "${salaNome}" clicou no botão PAGAR!`);
-                });
+                const card = document.querySelector(`.sala-card[data-sala-id="${salaId}"]`);
+                if (card) {
+                    card.classList.add('clique-pagamento');
+                    let cliquesPermanentes = JSON.parse(localStorage.getItem('cliques_pagamento_permanente') || '{}');
+                    cliquesPermanentes[salaId] = true;
+                    localStorage.setItem('cliques_pagamento_permanente', JSON.stringify(cliquesPermanentes));
+                }
+                adicionarNotificacao(salaNome, `🟠 Cliente clicou em PAGAR: ${clique.dataFormatada}`);
+                mostrarToast(`🔗 Cliente da sala "${salaNome}" clicou no botão PAGAR!`);
             }
         });
         return () => cliqueRef.off('child_added', listener);
     }
 
-    let messageMonitors = {};
-    let cliqueMonitors = {};
-
-    function iniciarMonitores() {
-        for (let id in salasCache) {
-            if (!messageMonitors[id] && salasCache[id].status !== 'fechada') {
-                messageMonitors[id] = monitorarMensagens(id, salasCache[id].nome);
-                cliqueMonitors[id] = monitorarCliquePagamento(id, salasCache[id].nome);
-            }
-        }
-    }
-
+    // ==================== CHAT ====================
+    
     window.baixarQRCode = async function(salaId, salaNome) {
         const qrDiv = document.getElementById(`qr-${salaId}`);
         if (!qrDiv) return;
@@ -1463,7 +1401,6 @@
         if (chatUnsubscribe) { chatUnsubscribe(); chatUnsubscribe = null; }
         await marcarTodasMensagemComoLidas(id);
         
-        // Remover classe de mensagem não lida do card
         const card = document.querySelector(`.sala-card[data-sala-id="${id}"]`);
         if (card) card.classList.remove('mensagem-nao-lida');
         
@@ -1514,6 +1451,8 @@
         input.value = '';
     };
 
+    // ==================== VISITANTES ====================
+    
     async function carregarVisitantes() {
         const snapshot = await db.ref('visitantes').once('value');
         const visitantes = snapshot.val();
@@ -1524,19 +1463,19 @@
         }
         const agora = Date.now();
         let html = '<table class="visitantes-table">';
-        html += '<tr><th>Sala</th><th>Visitante</th><th>Status</th><th>Atividade</th></tr>';
+        html += '<tr><th>Sala</th><th>Visitante</th><th>Status</th><th>Atividade</th></table>';
         for (let id in visitantes) {
             const v = visitantes[id];
             if (!v.salaNome) continue;
             const online = (agora - v.ultimaAtividade) < 60000;
             html += `<tr>
-                <td>${escapeHtml(v.salaNome)}</td>
-                <td>${escapeHtml(v.idVisitante?.substring(0, 12) || 'Anônimo')}...</td>
-                <td><span class="${online ? 'badge-online' : 'badge-offline'}">${online ? 'Online' : 'Offline'}</span></td>
-                <td>${new Date(v.ultimaAtividade).toLocaleTimeString()}</td>
+                <td>${escapeHtml(v.salaNome)}<\/td>
+                <td>${escapeHtml(v.idVisitante?.substring(0, 12) || 'Anônimo')}...<\/td>
+                <td><span class="${online ? 'badge-online' : 'badge-offline'}">${online ? 'Online' : 'Offline'}</span><\/td>
+                <td>${new Date(v.ultimaAtividade).toLocaleTimeString()}<\/td>
             </tr>`;
         }
-        html += '</table>';
+        html += '<tr>';
         container.innerHTML = html;
     }
 
@@ -1608,13 +1547,13 @@
         let html = '<table class="visitantes-table">';
         html += '<tr><th>Data</th><th>Sala</th><th>Ação</th></tr>';
         notificacoes.forEach(n => {
-            html += `<td>
+            html += `<tr>
                 <td>${n.data}</td>
-                <td>${escapeHtml(n.salaNome)}</td>
-                <td>${n.acao}</td>
+                <td>${escapeHtml(n.salaNome)}<\/td>
+                <td>${n.acao}<\/td>
             </tr>`;
         });
-        html += '</table>';
+        html += '</tr>';
         container.innerHTML = html;
     }
 
@@ -1639,34 +1578,15 @@
     // Event listeners
     document.getElementById('btnCriarSalaVazia')?.addEventListener('click', criarSalaVazia);
     document.getElementById('btnSalvarMensagens')?.addEventListener('click', salvarMensagens);
-    document.getElementById('btnAtualizarSalas')?.addEventListener('click', carregarSalas);
 
     // INICIALIZAÇÃO
-    (async function iniciar() {
-        carregarMensagensDoFirebase();
-        
-        // Carregar cache do localStorage primeiro (mais rápido)
-        const cached = localStorage.getItem('salas_cache');
-        if (cached) {
-            salasCache = JSON.parse(cached);
-            renderizarSalasDoCache();
-        }
-        
-        // Depois carregar do Firebase e atualizar
-        await carregarSalasParaCache();
-        renderizarSalasDoCache();
-        
-        // Iniciar monitores
-        iniciarMonitores();
-        
-        carregarVisitantes();
-        visitantesListener = monitorarVisitantesNotif();
-        carregarNotificacoesSalvas();
-        carregarPagamentosConfirmados();
-        
-        // Atualizar visitantes a cada 30 segundos
-        setInterval(() => carregarVisitantes(), 30000);
-    })();
+    carregarMensagensDoFirebase();
+    carregarSalas();
+    carregarVisitantes();
+    visitantesListener = monitorarVisitantesNotif();
+    carregarNotificacoesSalvas();
+    carregarPagamentosConfirmados();
+    setInterval(() => carregarVisitantes(), 30000);
 </script>
 </body>
 </html>
