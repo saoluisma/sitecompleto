@@ -408,16 +408,6 @@
             padding: 2rem;
             color: #999;
         }
-
-        .btn-reabrir {
-            background: #ff9800;
-            color: white;
-            margin-top: 1rem;
-        }
-
-        .btn-reabrir:hover {
-            background: #f57c00;
-        }
     </style>
 </head>
 <body>
@@ -446,7 +436,8 @@
                 <div class="progress-step" id="stepLabel1">1. Número</div>
                 <div class="progress-step" id="stepLabel2">2. Fotos</div>
                 <div class="progress-step" id="stepLabel3">3. Mensagens</div>
-                <div class="progress-step" id="stepLabel4">4. Concluir</div>
+                <div class="progress-step" id="stepLabel4">4. Pagamento</div>
+                <div class="progress-step" id="stepLabel5">5. Concluir</div>
             </div>
             <div class="progress-bar">
                 <div class="progress-fill" id="progressFill"></div>
@@ -508,8 +499,31 @@
             </div>
         </div>
 
-        <!-- Etapa 4: Resultado -->
+        <!-- Etapa 4: Código de Pagamento -->
         <div id="step4" class="step-content">
+            <div class="card">
+                <div class="card-header">
+                    <h2>💰 Código de Pagamento</h2>
+                    <p>Digite o código/PIX que o cliente usará para pagar</p>
+                </div>
+                <div class="card-body">
+                    <div class="form-group">
+                        <label>Código / Chave PIX / Link de pagamento</label>
+                        <input type="text" id="codigoPagamento" placeholder="Ex: 123456789, email@email.com, https://pagamento.com/..." autocomplete="off">
+                    </div>
+                    <div class="info-text" style="font-size: 0.7rem; color: #666; margin-bottom: 1rem;">
+                        Este código será convertido em QR Code para o cliente pagar
+                    </div>
+                    <div class="nav-buttons">
+                        <button class="btn btn-secondary" id="btnVoltar4">← Voltar</button>
+                        <button class="btn btn-primary" id="btnProximo4">Continuar →</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Etapa 5: Resultado -->
+        <div id="step5" class="step-content">
             <div class="card result-card">
                 <div class="card-header">
                     <h2>Sala configurada com sucesso!</h2>
@@ -540,6 +554,7 @@
     let fotosBase64 = [];
     let mensagensSelecionadas = [];
     let mensagensPredefinidas = [];
+    let codigoPagamento = '';
     let currentStep = 1;
     let fotosSlots = [];
     let isUpdating = false;
@@ -780,9 +795,9 @@
     }
 
     function atualizarProgresso() {
-        const fillWidth = ((currentStep - 1) / 3) * 100;
+        const fillWidth = ((currentStep - 1) / 4) * 100;
         document.getElementById('progressFill').style.width = `${fillWidth}%`;
-        for (let i = 1; i <= 4; i++) {
+        for (let i = 1; i <= 5; i++) {
             const label = document.getElementById(`stepLabel${i}`);
             if (label) {
                 label.classList.remove('active', 'completed');
@@ -796,7 +811,7 @@
     }
 
     function mostrarEtapa(step) {
-        for (let i = 1; i <= 4; i++) {
+        for (let i = 1; i <= 5; i++) {
             const el = document.getElementById(`step${i}`);
             if (el) el.classList.remove('active');
         }
@@ -805,7 +820,7 @@
         atualizarProgresso();
     }
 
-    // Validar etapa 1
+    // Validações
     function validarEtapa1() {
         numeroCasa = document.getElementById('numeroCasa').value.trim();
         if (!numeroCasa) {
@@ -815,10 +830,18 @@
         return true;
     }
 
-    // Validar etapa 3
     function validarEtapa3() {
         if (mensagensSelecionadas.length === 0) {
             alert("Selecione pelo menos uma mensagem");
+            return false;
+        }
+        return true;
+    }
+
+    function validarEtapa4() {
+        codigoPagamento = document.getElementById('codigoPagamento').value.trim();
+        if (!codigoPagamento) {
+            alert("Digite o código de pagamento (PIX, chave, ou link)");
             return false;
         }
         return true;
@@ -829,7 +852,7 @@
         if (isUpdating) return;
         isUpdating = true;
         
-        const btnProximo = document.getElementById('btnProximo3');
+        const btnProximo = document.getElementById('btnProximo4');
         if (btnProximo) {
             btnProximo.disabled = true;
             btnProximo.classList.add('disabled');
@@ -839,7 +862,6 @@
         try {
             const mensagensTexto = mensagensSelecionadas.map(i => mensagensPredefinidas[i]);
             const fotosArray = getFotosArray();
-            const tempoHoras = salaOriginal.tempoHoras || 48;
 
             // Atualizar a sala existente (agora configurada)
             await db.ref(`casas/${salaId}`).update({
@@ -847,8 +869,9 @@
                 numero: numeroCasa,
                 mensagens: mensagensTexto,
                 fotos: fotosArray,
-                atualizadoPor: 'mobile',
-                dataAtualizacao: Date.now(),
+                codigoPagamento: codigoPagamento,
+                configuradoPor: 'mobile',
+                dataConfiguracao: Date.now(),
                 status: 'ativa',
                 configurada: true
             });
@@ -858,6 +881,7 @@
                 <strong>${escapeHtml(`Casa ${numeroCasa}`)}</strong><br>
                 ID da Sala: ${salaId}<br>
                 ${mensagensTexto.length} mensagens | ${fotosArray.length} fotos<br>
+                💰 Código Pix: ${escapeHtml(codigoPagamento.substring(0, 30))}${codigoPagamento.length > 30 ? '...' : ''}<br>
                 <small>Sala configurada! Agora os clientes podem acessar.</small>
             `;
             
@@ -880,8 +904,16 @@
             if (!validarEtapa1()) return;
         }
         
+        if (etapa === 3 && currentStep === 2) {
+            // Sem validação para fotos (opcional)
+        }
+        
         if (etapa === 4 && currentStep === 3) {
             if (!validarEtapa3()) return;
+        }
+        
+        if (etapa === 5 && currentStep === 4) {
+            if (!validarEtapa4()) return;
             await configurarSala();
         }
         
@@ -898,7 +930,6 @@
     }
 
     function finalizar() {
-        // Redirecionar para o index (página inicial)
         window.location.href = 'index.html';
     }
 
@@ -944,6 +975,8 @@
     document.getElementById('btnProximo2')?.addEventListener('click', () => irParaEtapa(3));
     document.getElementById('btnVoltar3')?.addEventListener('click', () => irParaEtapa(2));
     document.getElementById('btnProximo3')?.addEventListener('click', () => irParaEtapa(4));
+    document.getElementById('btnVoltar4')?.addEventListener('click', () => irParaEtapa(3));
+    document.getElementById('btnProximo4')?.addEventListener('click', () => irParaEtapa(5));
     document.getElementById('btnFinalizar')?.addEventListener('click', finalizar);
     document.getElementById('btnVoltarInicio')?.addEventListener('click', voltarInicio);
 
