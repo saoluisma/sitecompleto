@@ -282,6 +282,7 @@
             background: #a93226;
         }
 
+        /* Chat - só aparece quando admin ativar */
         .chat-area {
             display: none;
             margin-top: 1rem;
@@ -324,24 +325,6 @@
             margin-right: auto;
             border-radius: 0.25rem 1rem 1rem 1rem;
             border: 1px solid #2a2a2a;
-        }
-
-        .message-img {
-            max-width: 150px;
-            border-radius: 0.5rem;
-            margin-top: 0.5rem;
-            cursor: pointer;
-        }
-
-        .message-file {
-            background: #1a1a1a;
-            padding: 0.3rem 0.6rem;
-            border-radius: 0.5rem;
-            display: inline-block;
-            margin-top: 0.3rem;
-            color: #c0392b;
-            text-decoration: none;
-            font-size: 0.7rem;
         }
 
         .message small {
@@ -630,8 +613,13 @@
             if (chatArea) {
                 if (chatAtivo) {
                     chatArea.classList.add('ativo');
+                    iniciarChat(id);
                 } else {
                     chatArea.classList.remove('ativo');
+                    if (chatUnsubscribe) {
+                        chatUnsubscribe();
+                        chatUnsubscribe = null;
+                    }
                 }
             }
         });
@@ -705,7 +693,6 @@
         popupUnsubscribe = () => popupRef.off('value', listener);
     }
 
-    // FUNÇÃO DO BOTÃO PAGAR - Abre pagamento.html
     window.irParaPagamento = function() {
         window.location.href = `pagamento.html?id=${casaId}`;
     };
@@ -803,11 +790,6 @@
                     msgDiv.className = `message ${msg.de === 'admin' ? 'message-admin' : 'message-user'}`;
                     let content = `<strong>${msg.de === 'admin' ? 'Atendente' : 'Você'}</strong>`;
                     if (msg.texto) content += `<div>${escapeHtml(msg.texto)}</div>`;
-                    if (msg.tipo === 'imagem' && msg.arquivo) {
-                        content += `<img src="${msg.arquivo}" class="message-img" onclick="abrirImagem('${msg.arquivo}')">`;
-                    } else if (msg.tipo === 'arquivo' && msg.arquivo && msg.nome) {
-                        content += `<div><a href="${msg.arquivo}" download="${msg.nome}" class="message-file">📎 ${msg.nome}</a></div>`;
-                    }
                     content += `<small>${new Date(msg.timestamp).toLocaleTimeString()}</small>`;
                     msgDiv.innerHTML = content;
                     messagesDiv.appendChild(msgDiv);
@@ -879,7 +861,7 @@
                             <div class="comprovante-input-area">
                                 <input type="text" id="comprovanteDescricao" placeholder="Descrição do comprovante (opcional)">
                                 <button class="file-btn" onclick="document.getElementById('fileInput').click()">📎 Selecionar</button>
-                                <input type="file" id="fileInput" style="display:none" accept="image/*,application/pdf,application/msword,application/vnd.openxmlformats-officedocument.*,image/*">
+                                <input type="file" id="fileInput" style="display:none" accept="image/*,application/pdf,application/msword,application/vnd.openxmlformats-officedocument.*">
                                 <button class="btn-enviar" onclick="enviarComprovante()">Enviar</button>
                             </div>
                         </div>
@@ -902,10 +884,6 @@
         currentExpiraEm = casa.expiraEm || (Date.now() + (48 * 3600000));
         iniciarTimer(currentExpiraEm);
         carregarComprovantes();
-        
-        if (chatAtivo) {
-            iniciarChat(id);
-        }
         
         monitorarPopup(id);
     }
